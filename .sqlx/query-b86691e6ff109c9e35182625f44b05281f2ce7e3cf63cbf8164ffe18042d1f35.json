@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO device_push_tokens (id, device_id, provider, token, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(device_id, provider) DO UPDATE SET token = excluded.token, updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "b86691e6ff109c9e35182625f44b05281f2ce7e3cf63cbf8164ffe18042d1f35"
+}

@@ -1,0 +1,14 @@
+target/
+node_modules/
+.svelte-kit/
+build/
+dist/
+.git/
+.gradle/
+*.db
+*.db-journal
+*.db-wal
+data/
+apps/kobup-android/
+apps/kobup-sdk/
+apps/kobup-sample-host/

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO devices (id, device_name, platform, sdk_int, abis_json, is_tv, kobup_version, last_seen_at, created_at) VALUES (?, ?, 'android', ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "67d4b63bfc098beb6a96d1239695f6f331c81252d17272f0ec8b9f9a03fe7c54"
+}

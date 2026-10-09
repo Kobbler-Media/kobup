@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE releases SET published_at = datetime('now') WHERE id = ? AND published_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "274e6c89e714da61244a7abcff9e565750351ccf3b23b4e5f32f5029b58fc769"
+}

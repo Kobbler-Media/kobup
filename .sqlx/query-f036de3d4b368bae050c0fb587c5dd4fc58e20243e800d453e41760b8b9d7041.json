@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO artifacts (id, release_id, file_name, package_name, sha256, size_bytes, min_sdk, target_sdk, version_code, version_name, supported_abis_json, is_universal, signing_fingerprint, file_path_or_object_key, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 15
+    },
+    "nullable": []
+  },
+  "hash": "f036de3d4b368bae050c0fb587c5dd4fc58e20243e800d453e41760b8b9d7041"
+}

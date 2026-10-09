@@ -1,0 +1,134 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id, device_name, platform, sdk_int, abis_json, is_tv as \"is_tv: bool\", kobup_version, app_version_code, last_seen_at, created_at FROM devices WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "device_name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "device_name"
+          }
+        }
+      },
+      {
+        "name": "platform",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "platform"
+          }
+        }
+      },
+      {
+        "name": "sdk_int",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "sdk_int"
+          }
+        }
+      },
+      {
+        "name": "abis_json",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "abis_json"
+          }
+        }
+      },
+      {
+        "name": "is_tv: bool",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "is_tv"
+          }
+        }
+      },
+      {
+        "name": "kobup_version",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "kobup_version"
+          }
+        }
+      },
+      {
+        "name": "app_version_code",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "app_version_code"
+          }
+        }
+      },
+      {
+        "name": "last_seen_at",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "last_seen_at"
+          }
+        }
+      },
+      {
+        "name": "created_at",
+        "ordinal": 9,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "devices",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "c01a93d3554a2f6b970bc8600789ad6f79a417921c886012301a828fbf10842c"
+}

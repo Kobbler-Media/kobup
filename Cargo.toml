@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/kobup-service", "crates/kobup-cli"]
+resolver = "2"

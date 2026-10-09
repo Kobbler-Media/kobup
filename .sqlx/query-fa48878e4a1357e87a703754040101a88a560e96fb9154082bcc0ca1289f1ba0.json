@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT user_id FROM auth_tokens WHERE token_hash = ? AND scope = ? AND revoked = 0 AND (expires_at IS NULL OR expires_at > datetime('now'))",
+  "describe": {
+    "columns": [
+      {
+        "name": "user_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "auth_tokens",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fa48878e4a1357e87a703754040101a88a560e96fb9154082bcc0ca1289f1ba0"
+}

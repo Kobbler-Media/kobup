@@ -1,0 +1,58 @@
+# Development — live reload via cargo-watch + vite dev server.
+# Usage: docker compose -f docker-compose.dev.yml up --build
+
+services:
+  api:
+    image: kobup-api:dev
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: dev
+    environment:
+      DATABASE_URL: "sqlite:/data/kobup.db?mode=rwc"
+      STORAGE_ROOT: /data
+      BIND_ADDR: "0.0.0.0:8080"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@localhost}"
+      ADMIN_BOOTSTRAP_PASSWORD: "${ADMIN_BOOTSTRAP_PASSWORD:-}"
+      KOBUP_BASE_URL: "${KOBUP_BASE_URL:-http://localhost:8080}"
+      RUST_LOG: "${RUST_LOG:-info,kobup_service=debug}"
+      KOBUP_TRUSTED_PROXY_HOPS: "${KOBUP_TRUSTED_PROXY_HOPS:-1}"
+      CARGO_TARGET_DIR: /target
+    ports:
+      - "${KOBUP_API_PORT:-8080}:8080"
+    volumes:
+      - kobup_data:/data
+      - ./Cargo.toml:/app/Cargo.toml
+      - ./Cargo.lock:/app/Cargo.lock
+      - ./crates:/app/crates
+      - ./.sqlx:/app/.sqlx
+      - kobup_api_target:/target
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  web:
+    image: kobup-web:dev
+    build:
+      context: ./apps/kobup-web
+      target: dev
+    environment:
+      VITE_API_BASE_URL: ""
+    ports:
+      - "${KOBUP_WEB_PORT:-5175}:5173"
+    volumes:
+      - ./apps/kobup-web:/app
+      - kobup_web_node_modules:/app/node_modules
+      - kobup_web_svelte_kit:/app/.svelte-kit
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  kobup_data:
+  kobup_api_target:
+  kobup_web_node_modules:
+  kobup_web_svelte_kit:

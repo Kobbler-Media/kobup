@@ -1,0 +1,182 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id, slug, name, description, package_name, visibility, default_channel, source_type, source_config_json, allowed_signing_fingerprints_json, icon_path, max_releases_per_channel, created_at, updated_at FROM projects ORDER BY created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "slug",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "slug"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "description",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "name": "package_name",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "package_name"
+          }
+        }
+      },
+      {
+        "name": "visibility",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "visibility"
+          }
+        }
+      },
+      {
+        "name": "default_channel",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "default_channel"
+          }
+        }
+      },
+      {
+        "name": "source_type",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "source_type"
+          }
+        }
+      },
+      {
+        "name": "source_config_json",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "source_config_json"
+          }
+        }
+      },
+      {
+        "name": "allowed_signing_fingerprints_json",
+        "ordinal": 9,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "allowed_signing_fingerprints_json"
+          }
+        }
+      },
+      {
+        "name": "icon_path",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "icon_path"
+          }
+        }
+      },
+      {
+        "name": "max_releases_per_channel",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "max_releases_per_channel"
+          }
+        }
+      },
+      {
+        "name": "created_at",
+        "ordinal": 12,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 13,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "projects",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "4a9ababdde10dec1fca94e18073d45a3e51081ba87a2a2ab6d3c753d06fcd5ca"
+}

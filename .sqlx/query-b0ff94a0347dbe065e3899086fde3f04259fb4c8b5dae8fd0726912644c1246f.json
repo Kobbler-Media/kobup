@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT token FROM device_push_tokens WHERE provider = 'fcm'",
+  "describe": {
+    "columns": [
+      {
+        "name": "token",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "device_push_tokens",
+            "name": "token"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b0ff94a0347dbe065e3899086fde3f04259fb4c8b5dae8fd0726912644c1246f"
+}

@@ -1,0 +1,46 @@
+/target
+.env
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+/data/
+node_modules/
+.svelte-kit/
+build/
+dist/
+
+# Gradle / Kotlin build detritus
+.gradle/
+.kotlin/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# Local agent context — machine/deploy specific, never public
+CLAUDE.local.md
+AGENTS.local.md
+.claude/
+.agents/
+
+# Per-developer secrets and deployment config — copy the .example files
+.kobup.json
+apps/kobup-android/app/google-services.json
+apps/kobup-android/.env
+keystore/
+*.jks
+*.keystore
+
+# Local compose overrides
+docker-compose.override.yml
+docker-compose.local.yml
+!.env.example

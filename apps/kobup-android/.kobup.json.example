@@ -1,0 +1,7 @@
+{
+  "projectSlug": "kobup",
+  "projectName": "Kobup Updater",
+  "packageName": "com.kobup.app",
+  "channel": "stable",
+  "server": "http://localhost:8080"
+}

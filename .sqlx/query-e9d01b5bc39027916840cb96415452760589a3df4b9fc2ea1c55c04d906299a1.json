@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS(SELECT 1 FROM users)",
+  "describe": {
+    "columns": [
+      {
+        "name": "EXISTS(SELECT 1 FROM users)",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e9d01b5bc39027916840cb96415452760589a3df4b9fc2ea1c55c04d906299a1"
+}

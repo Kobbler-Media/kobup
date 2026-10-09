@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO projects (id, slug, name, package_name, description, max_releases_per_channel, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "151f2320fd96684a43a605dd5d4a06fb029de1b7b5b7b9c252f55ca3f6115496"
+}

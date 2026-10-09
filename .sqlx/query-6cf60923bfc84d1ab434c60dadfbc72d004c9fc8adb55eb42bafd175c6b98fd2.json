@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO api_tokens (id, project_id, name, token_hash) VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "6cf60923bfc84d1ab434c60dadfbc72d004c9fc8adb55eb42bafd175c6b98fd2"
+}

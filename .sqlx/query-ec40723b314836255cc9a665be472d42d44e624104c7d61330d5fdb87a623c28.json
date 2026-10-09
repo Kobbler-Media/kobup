@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO install_events (id, device_id, package_name, from_version_code, to_version_code, status, message) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "ec40723b314836255cc9a665be472d42d44e624104c7d61330d5fdb87a623c28"
+}

@@ -1,0 +1,73 @@
+# Kobup — minimal example stack (API + web UI). SQLite and uploaded APKs live
+# in the `kobup_data` named volume, so there is nothing to set up on the host.
+#
+# This file is an EXAMPLE, not a production deployment. It builds both images
+# from this checkout, so you need no registry access.
+#
+# Bring it up:
+#   cp .env.example .env     # leave ADMIN_BOOTSTRAP_PASSWORD blank to auto-generate one on first boot
+#   docker compose up -d --build
+#
+# Web UI: http://localhost:${KOBUP_WEB_PORT:-5175}
+# API:    http://localhost:${KOBUP_API_PORT:-8080}
+
+services:
+  api:
+    image: kobup:local
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: prod
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    environment:
+      DATABASE_URL: "sqlite:/data/kobup.db?mode=rwc"
+      STORAGE_ROOT: /data
+      BIND_ADDR: "0.0.0.0:8080"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@localhost}"
+      ADMIN_BOOTSTRAP_PASSWORD: "${ADMIN_BOOTSTRAP_PASSWORD:-}"
+      KOBUP_BASE_URL: "${KOBUP_BASE_URL:-http://localhost:8080}"
+      KOBUP_WEB_ORIGINS: "${KOBUP_WEB_ORIGINS:-}"
+      FCM_SERVICE_ACCOUNT_JSON: "${FCM_SERVICE_ACCOUNT_JSON:-}"
+      KOBUP_GITHUB_TOKEN: "${KOBUP_GITHUB_TOKEN:-}"
+      GITHUB_POLL_INTERVAL_SECS: "${GITHUB_POLL_INTERVAL_SECS:-3600}"
+      MAX_RELEASES_PER_CHANNEL: "${MAX_RELEASES_PER_CHANNEL:-10}"
+      RUST_LOG: "${RUST_LOG:-info,kobup_service=info}"
+      KOBUP_TRUSTED_PROXY_HOPS: "${KOBUP_TRUSTED_PROXY_HOPS:-1}"
+      KOBUP_PIN_SERVICE_URL: "${KOBUP_PIN_SERVICE_URL:-}"
+    ports:
+      - "${KOBUP_API_PORT:-8080}:8080"
+    volumes:
+      - ${KOBUP_DATA:-kobup_data}:/data
+      # Push notifications need a Firebase service account JSON mounted in and
+      # FCM_SERVICE_ACCOUNT_JSON pointing at it, e.g.
+      # - ${FCM_SERVICE_ACCOUNT_HOST_PATH:-./fcm-service-account.json}:/secrets/fcm.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    image: kobup-web:local
+    build:
+      context: ./apps/kobup-web
+      target: prod
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    ports:
+      - "${KOBUP_WEB_PORT:-5175}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  kobup_data:

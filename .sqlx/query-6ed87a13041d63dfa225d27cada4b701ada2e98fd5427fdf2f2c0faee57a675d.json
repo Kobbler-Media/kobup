@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT project_id FROM api_tokens WHERE token_hash = ? AND revoked_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "project_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "api_tokens",
+            "name": "project_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "6ed87a13041d63dfa225d27cada4b701ada2e98fd5427fdf2f2c0faee57a675d"
+}

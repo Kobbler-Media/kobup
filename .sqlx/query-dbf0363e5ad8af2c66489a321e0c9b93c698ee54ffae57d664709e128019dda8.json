@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO releases (id, project_id, channel_id, version_code, version_name, release_notes, source_type, source_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 8
+    },
+    "nullable": []
+  },
+  "hash": "dbf0363e5ad8af2c66489a321e0c9b93c698ee54ffae57d664709e128019dda8"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE devices SET last_seen_at = ?, kobup_version = COALESCE(?, kobup_version), app_version_code = COALESCE(?, app_version_code) WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "5984960b6ab20ea926db308e85332acecc858efe6c69f0d9243f9f7b65c77d96"
+}

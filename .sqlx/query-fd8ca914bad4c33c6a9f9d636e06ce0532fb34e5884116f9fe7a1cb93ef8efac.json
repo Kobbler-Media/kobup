@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id, project_id, name, created_at, revoked_at FROM api_tokens ORDER BY created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "api_tokens",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "project_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "api_tokens",
+            "name": "project_id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "api_tokens",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "created_at",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "api_tokens",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "name": "revoked_at",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "api_tokens",
+            "name": "revoked_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "fd8ca914bad4c33c6a9f9d636e06ce0532fb34e5884116f9fe7a1cb93ef8efac"
+}
