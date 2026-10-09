@@ -10,11 +10,13 @@
 // Kotlin rather than Groovy: Gradle's Groovy cannot compile a script on a newer JDK than
 // it knows, and fails the whole build at configuration time when it tries.
 
-val publishRootDir: File = rootDir
-val publishModulePath: String = project.path
-val publishApkDir: File = layout.buildDirectory.dir("outputs/apk/release").get().asFile
-
 tasks.register("publishToKobup") {
+    // Read here, not in the action: an action that touches the script object cannot be stored in
+    // the configuration cache, which kampr and tina run with.
+    val publishRootDir: File = rootDir
+    val publishModulePath: String = project.path
+    val publishApkDir: File = layout.buildDirectory.dir("outputs/apk/release").get().asFile
+
     doLast {
         fun run(vararg cmd: String): Pair<Int, String> {
             val p = ProcessBuilder(*cmd).directory(publishRootDir).redirectErrorStream(true).start()
