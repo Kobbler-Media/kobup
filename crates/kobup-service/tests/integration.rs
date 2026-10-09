@@ -1746,3 +1746,119 @@ async fn test_pin_login_publishes_to_configured_pin_service() {
     assert_eq!(pin, "ABCD12");
     assert_eq!(body["api_url"], "https://updates.example");
 }
+
+// ---------------------------------------------------------------------------
+// Dex metadata (.dm) — the baseline profile staged beside the APK
+// ---------------------------------------------------------------------------
+
+async fn ci_token_for(client: &Client, base_url: &str, token: &str, project_id: &str) -> String {
+    let resp = client
+        .post(format!("{base_url}/api/v1/admin/tokens"))
+        .bearer_auth(token)
+        .json(&json!({"name": "ci", "projectId": project_id}))
+        .send()
+        .await
+        .expect("create token");
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let body: Value = resp.json().await.unwrap();
+    body["token"].as_str().unwrap().to_string()
+}
+
+#[tokio::test]
+async fn test_dex_metadata_follows_device_sdk() {
+    let (client, base_url, token) = setup().await;
+    let dm_p = b"profile for 28-30".to_vec();
+    let dm_s = b"profile for 31+".to_vec();
+
+    for (slug, via_ci) in [("dm-admin", false), ("dm-ci", true)] {
+        let package = format!("com.test.{}", slug.replace('-', "."));
+        let project = create_project(&client, &base_url, &token, slug, slug).await;
+        let project_id = project["id"].as_str().unwrap();
+
+        let form = reqwest::multipart::Form::new()
+            .part(
+                "apk",
+                reqwest::multipart::Part::bytes(create_test_apk(&package, 3, "3.0.0"))
+                    .file_name("app.apk"),
+            )
+            .part(
+                "dm_28",
+                reqwest::multipart::Part::bytes(dm_p.clone()).file_name("app.dm"),
+            )
+            .part(
+                "dm_31",
+                reqwest::multipart::Part::bytes(dm_s.clone()).file_name("app.dm"),
+            )
+            .text("publish", "true");
+        let (url, bearer) = if via_ci {
+            (
+                format!("{base_url}/api/v1/ci/projects/{slug}/release"),
+                ci_token_for(&client, &base_url, &token, project_id).await,
+            )
+        } else {
+            (
+                format!("{base_url}/api/v1/admin/projects/{project_id}/upload"),
+                token.clone(),
+            )
+        };
+        let resp = client
+            .post(url)
+            .bearer_auth(bearer)
+            .multipart(form)
+            .send()
+            .await
+            .expect("upload");
+        assert_eq!(resp.status(), StatusCode::CREATED, "{slug}: upload failed");
+
+        for latest in [
+            format!("{base_url}/api/v1/projects/{slug}/latest"),
+            format!("{base_url}/api/v1/packages/{package}/latest"),
+        ] {
+            for (sdk, expected) in [
+                (Some(34), Some((31, &dm_s))),
+                (Some(31), Some((31, &dm_s))),
+                (Some(30), Some((28, &dm_p))),
+                (Some(28), Some((28, &dm_p))),
+                (Some(26), None),
+                (None, None),
+            ] {
+                let query = sdk.map(|s| format!("?sdkInt={s}")).unwrap_or_default();
+                let body: Value = client
+                    .get(format!("{latest}{query}"))
+                    .send()
+                    .await
+                    .expect("latest")
+                    .json()
+                    .await
+                    .expect("json");
+                let dm = &body["dexMetadata"];
+                let Some((min_api, expected)) = expected else {
+                    assert!(
+                        dm.is_null(),
+                        "{latest} sdk {sdk:?}: expected no .dm, got {dm}"
+                    );
+                    continue;
+                };
+                let url = dm["downloadUrl"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{latest} sdk {sdk:?}: no .dm in {body}"));
+                assert_eq!(dm["minApi"], min_api);
+                assert_eq!(dm["sha256"], kobup_service::apk::compute_sha256(expected));
+                assert_eq!(dm["sizeBytes"], expected.len());
+                let bytes = client
+                    .get(url.replacen("http://localhost", &base_url, 1))
+                    .send()
+                    .await
+                    .expect("dm download")
+                    .bytes()
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    &bytes[..],
+                    &expected[..],
+                    "{latest} sdk {sdk:?}: wrong .dm served"
+                );
+            }
+        }
+    }
+}

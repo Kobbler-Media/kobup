@@ -163,11 +163,13 @@ Tokens are SHA-256 hashed before storage. The admin session cookie is `kobup_ses
 
 ## API overview
 
-**Public (no auth)** — `GET /health`, `GET /api/v1/catalog`, `GET /api/v1/projects/{slug}/latest`, `GET /api/v1/projects/{id}/icon`, `GET /api/v1/artifacts/{id}/download`, `POST /api/v1/devices/register`
+**Public (no auth)** — `GET /health`, `GET /api/v1/catalog`, `GET /api/v1/projects/{slug}/latest`, `GET /api/v1/projects/{id}/icon`, `GET /api/v1/packages/{package}/latest`, `GET /api/v1/artifacts/{id}/download`, `GET /api/v1/artifacts/{id}/dm/{minApi}`, `POST /api/v1/devices/register`
 
 **Admin (bearer token or session cookie)** — `POST /api/v1/admin/login`, `GET/POST /api/v1/admin/projects`, `POST /api/v1/admin/projects/{id}/upload`, `POST /api/v1/admin/projects/{id}/icon`, `POST /api/v1/admin/releases/{id}/publish`, `POST /api/v1/admin/push-refresh`
 
 **CI (API token)** — `POST /api/v1/ci/projects/{slug}/release`, `POST /api/v1/ci/projects/{slug}/push-refresh`
+
+**Baseline profiles** — an upload may carry the APK's dex metadata as `dm_<minApi>` fields, one per API band (AGP writes them under `baselineProfiles/` with an `output-metadata.json` beside the APK; `kobup push` and `publishToKobup` send them automatically). `latest` returns the band matching the `sdkInt` query as `dexMetadata`, and the Android app stages it with the APK so ART compiles the app at install time instead of leaving it on the JIT.
 
 ## Production notes
 

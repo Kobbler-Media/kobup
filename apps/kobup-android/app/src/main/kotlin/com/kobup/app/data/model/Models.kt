@@ -48,7 +48,15 @@ data class LatestBySlugResponse(
     val sha256: String,
     val sizeBytes: Long,
     val minSdk: Long? = null,
+    val dexMetadata: DexMetadataInfo? = null,
     val reason: String? = null,
+)
+
+@Serializable
+data class DexMetadataInfo(
+    val minApi: Int,
+    val sha256: String,
+    val sizeBytes: Long,
 )
 
 @Serializable

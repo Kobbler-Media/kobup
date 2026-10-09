@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod dex_metadata;
 mod http;
 
 use clap::{Parser, Subcommand};

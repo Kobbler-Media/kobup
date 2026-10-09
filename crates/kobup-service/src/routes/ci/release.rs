@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use crate::AppState;
 use crate::apk;
+use crate::dex_metadata;
 use crate::repositories::{artifacts, channels, projects, releases};
 use crate::routes::CiAuth;
 
@@ -83,6 +84,7 @@ pub async fn upload(
     let mut override_version_code: Option<String> = None;
     let mut override_version_name: Option<String> = None;
     let mut override_package_name: Option<String> = None;
+    let mut profiles: Vec<(i64, Vec<u8>)> = Vec::new();
 
     loop {
         let field = match multipart.next_field().await {
@@ -146,7 +148,18 @@ pub async fn upload(
                     override_package_name = Some(text);
                 }
             }
-            _ => {}
+            other => {
+                if let Some(min_api) = dex_metadata::field_min_api(other) {
+                    match field.bytes().await {
+                        Ok(bytes) => profiles.push((min_api, bytes.to_vec())),
+                        Err(e) => {
+                            tracing::error!(error = %e, "failed to read dex metadata field");
+                            return (StatusCode::BAD_REQUEST, "failed to read dex metadata")
+                                .into_response();
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -360,6 +373,17 @@ pub async fn upload(
                 .into_response();
         }
     };
+
+    if let Err(e) = dex_metadata::store(&state, &artifact_id, profiles).await {
+        tracing::error!(error = %e, "failed to store dex metadata");
+        let _ = state.storage.delete_artifact(&artifact_id).await;
+        let _ = releases::delete(&state.pool, &release.id).await;
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to store dex metadata",
+        )
+            .into_response();
+    }
 
     // Re-fetch release to get updated published_at
     let final_release = releases::get_by_id(&state.pool, &release.id)

@@ -12,21 +12,28 @@ interface ApkInstallSession {
     fun close()
 }
 
-private const val ENTRY_NAME = "kobup_install"
+class DexMetadata(val bytes: ByteArray, val sha256: String)
+
+// The platform finds an APK's dex metadata by swapping `.apk` for `.dm` in its name.
+private const val APK_ENTRY = "base.apk"
+private const val DM_ENTRY = "base.dm"
 private const val BUFFER_SIZE = 8192
+
+private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
 
 fun writeApkToSession(
     session: ApkInstallSession,
     source: InputStream,
     totalBytes: Long,
     expectedSha256: String?,
+    dexMetadata: DexMetadata?,
     onProgress: (Float) -> Unit,
 ) {
     val digest = MessageDigest.getInstance("SHA-256")
     var written = 0L
 
     try {
-        session.openWrite(ENTRY_NAME, 0, totalBytes).use { output ->
+        session.openWrite(APK_ENTRY, 0, totalBytes).use { output ->
             val buffer = ByteArray(BUFFER_SIZE)
             while (true) {
                 val read = source.read(buffer)
@@ -40,9 +47,20 @@ fun writeApkToSession(
         }
 
         if (expectedSha256 != null) {
-            val actual = digest.digest().joinToString("") { "%02x".format(it) }
+            val actual = digest.digest().hex()
             if (!actual.equals(expectedSha256, ignoreCase = true)) {
                 throw SecurityException("SHA256 mismatch: expected $expectedSha256 but got $actual")
+            }
+        }
+
+        if (dexMetadata != null) {
+            val actual = MessageDigest.getInstance("SHA-256").digest(dexMetadata.bytes).hex()
+            if (!actual.equals(dexMetadata.sha256, ignoreCase = true)) {
+                throw SecurityException("Profile SHA256 mismatch: expected ${dexMetadata.sha256} but got $actual")
+            }
+            session.openWrite(DM_ENTRY, 0, dexMetadata.bytes.size.toLong()).use { output ->
+                output.write(dexMetadata.bytes)
+                session.fsync(output)
             }
         }
 

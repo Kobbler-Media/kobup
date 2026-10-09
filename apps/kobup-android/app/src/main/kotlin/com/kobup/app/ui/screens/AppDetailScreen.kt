@@ -145,6 +145,7 @@ fun AppDetailScreen(
                     repo = repo,
                     artifactId = info.artifactId,
                     expectedSha256 = info.sha256,
+                    dexMetadata = info.dexMetadata,
                     onProgress = { progress = it },
                 )
                 installState = InstallState.SUCCESS

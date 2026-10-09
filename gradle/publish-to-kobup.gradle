@@ -96,15 +96,26 @@ tasks.register("publishToKobup") {
         def apk = apkDir.listFiles()?.find { it.name.endsWith(".apk") }
         if (!apk) throw new GradleException("No release APK found in ${apkDir.absolutePath}")
 
-        logger.lifecycle("Publishing ${apk.name} (v${newName} code ${newCode}) to ${server}")
+        // The baseline profile as dex metadata, one per API band, so the installer can have
+        // ART compile the app at install time rather than leave it on the JIT.
+        def dmFields = []
+        def outputMetadata = new File(apkDir, "output-metadata.json")
+        if (outputMetadata.exists()) {
+            new groovy.json.JsonSlurper().parseText(outputMetadata.text).baselineProfiles?.each { band ->
+                def dm = band.baselineProfiles ? new File(apkDir, band.baselineProfiles[0]) : null
+                if (dm?.exists()) dmFields += ["-F", "dm_${band.minApi}=@${dm.absolutePath}"]
+            }
+        }
+
+        logger.lifecycle("Publishing ${apk.name} (v${newName} code ${newCode}) with ${dmFields.size().intdiv(2)} profile(s) to ${server}")
 
         // Upload
-        def proc = new ProcessBuilder("curl", "-s", "-f", "-X", "POST",
+        def proc = new ProcessBuilder((["curl", "-s", "-f", "-X", "POST",
             "${server}/api/v1/ci/projects/${slug}/release",
             "-H", "Authorization: Bearer ${token}",
             "-F", "apk=@${apk.absolutePath}",
             "-F", "channel=${channel}",
-            "-F", "publish=true")
+            "-F", "publish=true"] + dmFields)*.toString())
             .redirectErrorStream(true).start()
         def output = proc.inputStream.text
         if (proc.waitFor() != 0) {

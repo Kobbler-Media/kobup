@@ -47,6 +47,12 @@ interface KobupApi {
     @GET("api/v1/artifacts/{artifactId}/download")
     suspend fun downloadArtifact(@Path("artifactId") artifactId: String): ResponseBody
 
+    @GET("api/v1/artifacts/{artifactId}/dm/{minApi}")
+    suspend fun downloadDexMetadata(
+        @Path("artifactId") artifactId: String,
+        @Path("minApi") minApi: Int,
+    ): ResponseBody
+
     @POST("api/v1/devices/{deviceId}/install-event")
     suspend fun reportInstallEvent(
         @Path("deviceId") deviceId: String,

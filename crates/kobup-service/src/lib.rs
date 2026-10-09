@@ -2,6 +2,7 @@ pub mod apk;
 pub mod auth;
 pub mod config;
 pub mod db;
+pub mod dex_metadata;
 pub mod fcm;
 pub mod github;
 pub mod http;
@@ -160,15 +161,19 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/v1/projects/{id}/icon", get(public::icons::get_icon))
         .route(
             "/api/v1/projects/{slug}/latest",
-            get(public::catalog::latest_by_slug),
+            get(public::latest::latest_by_slug),
         )
         .route(
             "/api/v1/packages/{package_name}/latest",
-            get(public::packages::latest_by_package),
+            get(public::latest::latest_by_package),
         )
         .route(
             "/api/v1/artifacts/{artifact_id}/download",
             get(public::download::download),
+        )
+        .route(
+            "/api/v1/artifacts/{artifact_id}/dm/{min_api}",
+            get(public::download::dex_metadata),
         )
         // Public devices
         .route("/api/v1/devices/register", post(public::devices::register))

@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT artifact_id, min_api, sha256, size_bytes, file_path FROM dex_metadata WHERE artifact_id = ? AND min_api = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "artifact_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dex_metadata",
+            "name": "artifact_id"
+          }
+        }
+      },
+      {
+        "name": "min_api",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "dex_metadata",
+            "name": "min_api"
+          }
+        }
+      },
+      {
+        "name": "sha256",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dex_metadata",
+            "name": "sha256"
+          }
+        }
+      },
+      {
+        "name": "size_bytes",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "dex_metadata",
+            "name": "size_bytes"
+          }
+        }
+      },
+      {
+        "name": "file_path",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dex_metadata",
+            "name": "file_path"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "04d3f82863c0e3146d7f45e33466dcf56bc5b84f504e114882f5d1c0ff64744d"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO dex_metadata (artifact_id, min_api, sha256, size_bytes, file_path) VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "e24b9e347d8f10318c38ade48a80fb947e196b5071f9a1937abbda4bffaeeca3"
+}

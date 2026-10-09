@@ -6,6 +6,7 @@ pub mod auth_tokens;
 pub mod channels;
 pub mod device_push_tokens;
 pub mod devices;
+pub mod dex_metadata;
 pub mod install_events;
 pub mod projects;
 pub mod releases;

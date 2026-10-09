@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import android.util.Log
+import com.kobup.app.data.model.DexMetadataInfo
 import com.kobup.app.data.repository.AppRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,8 +18,15 @@ class InstallService(private val context: Context) {
         repo: AppRepository,
         artifactId: String,
         expectedSha256: String?,
+        dexMetadata: DexMetadataInfo?,
         onProgress: (Float) -> Unit,
     ) = withContext(Dispatchers.IO) {
+        // The profile only spares ART the JIT warm-up, so an install goes ahead without it.
+        val profile = dexMetadata?.let { dm ->
+            runCatching { DexMetadata(repo.downloadDexMetadata(artifactId, dm.minApi).bytes(), dm.sha256) }
+                .onFailure { Log.w("Kobup", "installing without the baseline profile", it) }
+                .getOrNull()
+        }
         val body = repo.downloadArtifact(artifactId)
         val totalBytes = body.contentLength()
 
@@ -32,6 +41,7 @@ class InstallService(private val context: Context) {
                 source = input,
                 totalBytes = totalBytes,
                 expectedSha256 = expectedSha256,
+                dexMetadata = profile,
                 onProgress = onProgress,
             )
         }

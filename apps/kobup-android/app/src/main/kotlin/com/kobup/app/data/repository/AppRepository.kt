@@ -71,6 +71,9 @@ class AppRepository(private val context: Context) {
 
     suspend fun downloadArtifact(artifactId: String) = ensureApi().downloadArtifact(artifactId)
 
+    suspend fun downloadDexMetadata(artifactId: String, minApi: Int) =
+        ensureApi().downloadDexMetadata(artifactId, minApi)
+
     suspend fun reportInstallEvent(
         packageName: String,
         fromVersionCode: Long?,

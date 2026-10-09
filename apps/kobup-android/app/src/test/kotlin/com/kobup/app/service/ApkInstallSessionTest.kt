@@ -16,14 +16,17 @@ private val APK = ByteArray(20_000) { (it % 251).toByte() }
 private fun sha256(bytes: ByteArray) =
     MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
+private val PROFILE = ByteArray(300) { (it % 7).toByte() }
+
 private class FakeSession(private val bytesBeforeFailure: Int = -1) : ApkInstallSession {
-    val staged = ByteArrayOutputStream()
+    val entries = linkedMapOf<String, ByteArrayOutputStream>()
+    val staged get() = entries.values.first()
     var committed = false
     var abandoned = false
     var closed = false
 
     override fun openWrite(name: String, offset: Long, length: Long): OutputStream =
-        if (bytesBeforeFailure < 0) staged else FailingStream(bytesBeforeFailure)
+        if (bytesBeforeFailure < 0) ByteArrayOutputStream().also { entries[name] = it } else FailingStream(bytesBeforeFailure)
 
     override fun fsync(output: OutputStream) = Unit
     override fun commit() { committed = true }
@@ -40,9 +43,9 @@ private class FakeSession(private val bytesBeforeFailure: Int = -1) : ApkInstall
     }
 }
 
-private fun run(session: FakeSession, sha: String?, apk: ByteArray = APK) =
+private fun run(session: FakeSession, sha: String?, apk: ByteArray = APK, profile: DexMetadata? = null) =
     runCatching {
-        writeApkToSession(session, ByteArrayInputStream(apk), apk.size.toLong(), sha) {}
+        writeApkToSession(session, ByteArrayInputStream(apk), apk.size.toLong(), sha, profile) {}
     }
 
 class ApkInstallSessionTest {
@@ -62,7 +65,7 @@ class ApkInstallSessionTest {
     @Test
     fun `reports progress up to completion`() {
         val seen = mutableListOf<Float>()
-        writeApkToSession(FakeSession(), ByteArrayInputStream(APK), APK.size.toLong(), null) { seen += it }
+        writeApkToSession(FakeSession(), ByteArrayInputStream(APK), APK.size.toLong(), null, null) { seen += it }
 
         assertEquals(1f, seen.last(), 0.0001f)
     }
@@ -95,11 +98,35 @@ class ApkInstallSessionTest {
                 if (pos > 8192) throw IOException("connection reset") else super.read(b, off, len)
         }
         val result = runCatching {
-            writeApkToSession(session, truncated, APK.size.toLong(), null) {}
+            writeApkToSession(session, truncated, APK.size.toLong(), null, null) {}
         }
 
         assertTrue(result.exceptionOrNull() is IOException)
         assertFalse(session.committed)
         assertTrue("session leaked after download failure", session.abandoned)
+    }
+
+    // The platform pairs a .dm with the APK of the same name; any other name and the
+    // session fails validation or the profile is ignored.
+    @Test
+    fun `stages the profile beside the apk under the matching name`() {
+        val session = FakeSession()
+        val result = run(session, sha256(APK), profile = DexMetadata(PROFILE, sha256(PROFILE)))
+
+        assertTrue(result.isSuccess)
+        assertEquals(listOf("base.apk", "base.dm"), session.entries.keys.toList())
+        assertArrayEquals(APK, session.entries.getValue("base.apk").toByteArray())
+        assertArrayEquals(PROFILE, session.entries.getValue("base.dm").toByteArray())
+        assertTrue(session.committed)
+    }
+
+    @Test
+    fun `abandons the session when the profile hash does not match`() {
+        val session = FakeSession()
+        val result = run(session, sha256(APK), profile = DexMetadata(PROFILE, sha256(APK)))
+
+        assertTrue(result.exceptionOrNull() is SecurityException)
+        assertFalse(session.committed)
+        assertTrue("session leaked after profile hash mismatch", session.abandoned)
     }
 }

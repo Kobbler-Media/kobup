@@ -3,7 +3,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::path::{Path, PathBuf};
 
 use crate::config::{ProjectConfig, UserConfig};
-use crate::http;
+use crate::{dex_metadata, http};
 
 #[derive(Args)]
 pub struct PushArgs {
@@ -94,6 +94,14 @@ async fn upload_apk(
 
     if let Some(notes) = params.notes {
         form = form.text("release_notes", notes.to_string());
+    }
+
+    for (min_api, path) in dex_metadata::profiles_beside(apk_path) {
+        form = form.part(
+            format!("dm_{min_api}"),
+            reqwest::multipart::Part::bytes(std::fs::read(&path)?)
+                .file_name(format!("{min_api}.dm")),
+        );
     }
 
     let resp = params
