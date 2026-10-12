@@ -110,6 +110,7 @@ pub async fn create(pool: &DbPool, input: &CreateProjectInput) -> super::Result<
     })
 }
 
+#[derive(Default)]
 pub struct UpdateProjectInput {
     pub name: Option<String>,
     pub description: Option<String>,

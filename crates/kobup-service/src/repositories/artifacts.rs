@@ -125,7 +125,6 @@ pub async fn get_best_for_release(
     sdk_int: Option<i64>,
     abis: &[String],
 ) -> super::Result<Option<Artifact>> {
-    // Fetch all artifacts for the release
     let all = sqlx::query_as!(
         Artifact,
         r#"SELECT id, release_id, file_name, package_name, sha256, size_bytes, min_sdk, target_sdk, version_code, version_name, supported_abis_json, is_universal as "is_universal: bool", signing_fingerprint, file_path_or_object_key, mime_type, created_at FROM artifacts WHERE release_id = ?"#,
@@ -133,45 +132,43 @@ pub async fn get_best_for_release(
     )
     .fetch_all(pool)
     .await?;
+    Ok(pick_best(all, sdk_int, abis))
+}
 
-    let mut candidates: Vec<&Artifact> = all
-        .iter()
-        .filter(|a| {
-            // Filter by min_sdk if device sdk_int provided
-            if let (Some(min), Some(sdk)) = (a.min_sdk, sdk_int)
-                && min > sdk
-            {
-                return false;
-            }
-            true
+/// `abis` is the device's `Build.SUPPORTED_ABIS`, most preferred first: an arm64 phone
+/// lists armeabi-v7a too, and must still get the arm64 split. Among artifacts that serve
+/// the same ABI the smaller wins, so a split beats the universal APK. Without the device's
+/// ABIs only a universal APK is safe to hand out.
+fn pick_best(all: Vec<Artifact>, sdk_int: Option<i64>, abis: &[String]) -> Option<Artifact> {
+    let mut runnable: Vec<Artifact> = all
+        .into_iter()
+        .filter(|a| match (a.min_sdk, sdk_int) {
+            (Some(min), Some(sdk)) => min <= sdk,
+            _ => true,
         })
         .collect();
 
-    if candidates.is_empty() {
-        return Ok(None);
+    // A lone artifact is served even when not flagged universal: single-APK releases
+    // uploaded before splits existed were stored that way whenever they had native libs.
+    if abis.is_empty() {
+        return match runnable.len() {
+            1 => runnable.pop(),
+            _ => runnable.into_iter().find(|a| a.is_universal),
+        };
     }
 
-    // Prefer ABI-specific match over universal
-    if !abis.is_empty() {
-        let abi_specific: Vec<&Artifact> = candidates
-            .iter()
-            .filter(|a| {
-                if a.is_universal {
-                    return false;
-                }
-                let artifact_abis: Vec<String> =
-                    serde_json::from_str(&a.supported_abis_json).unwrap_or_default();
-                abis.iter()
-                    .any(|device_abi| artifact_abis.contains(device_abi))
-            })
-            .copied()
-            .collect();
-
-        if !abi_specific.is_empty() {
-            candidates = abi_specific;
-        }
-    }
-
-    // Return the first candidate (they're all valid at this point)
-    Ok(candidates.into_iter().next().cloned())
+    runnable
+        .into_iter()
+        .filter_map(|a| {
+            let artifact_abis: Vec<String> =
+                serde_json::from_str(&a.supported_abis_json).unwrap_or_default();
+            let rank = if artifact_abis.is_empty() {
+                Some(0)
+            } else {
+                abis.iter().position(|abi| artifact_abis.contains(abi))
+            };
+            rank.map(|rank| (rank, a))
+        })
+        .min_by_key(|(rank, a)| (*rank, a.size_bytes))
+        .map(|(_, a)| a)
 }

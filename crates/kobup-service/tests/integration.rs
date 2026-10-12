@@ -214,18 +214,28 @@ fn build_binary_manifest(package: &str, version_code: u32, version_name: &str) -
 
 /// Create a minimal valid APK (ZIP containing a binary AndroidManifest.xml).
 fn create_test_apk(package: &str, version_code: u32, version_name: &str) -> Vec<u8> {
+    create_test_apk_with_abis(package, version_code, version_name, &[])
+}
+
+fn create_test_apk_with_abis(
+    package: &str,
+    version_code: u32,
+    version_name: &str,
+    abis: &[&str],
+) -> Vec<u8> {
     let manifest = build_binary_manifest(package, version_code, version_name);
-    let buf = Vec::new();
-    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(buf));
-    zip.start_file::<_, ()>(
-        "AndroidManifest.xml",
-        zip::write::SimpleFileOptions::default(),
-    )
-    .unwrap();
-    zip.write_all(&manifest).unwrap();
-    zip.start_file::<_, ()>("classes.dex", zip::write::SimpleFileOptions::default())
+    let opts = zip::write::SimpleFileOptions::default();
+    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    zip.start_file::<_, ()>("AndroidManifest.xml", opts)
         .unwrap();
+    zip.write_all(&manifest).unwrap();
+    zip.start_file::<_, ()>("classes.dex", opts).unwrap();
     zip.write_all(b"fake dex").unwrap();
+    for abi in abis {
+        zip.start_file::<_, ()>(format!("lib/{abi}/libnative.so"), opts)
+            .unwrap();
+        zip.write_all(abi.repeat(64).as_bytes()).unwrap();
+    }
     zip.finish().unwrap().into_inner()
 }
 
@@ -336,6 +346,7 @@ async fn setup_with(
         token_length: 32,
         fcm_service_account_json: None,
         github_token: None,
+        github_api_url: "http://127.0.0.1:9".to_string(),
         max_releases_per_channel: 10,
         github_poll_interval_secs: 3600,
         trusted_proxy_hops: 1,
@@ -1861,4 +1872,338 @@ async fn test_dex_metadata_follows_device_sdk() {
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// ABI splits — one release, several APKs, each device gets the smallest it can run
+// ---------------------------------------------------------------------------
+
+const ALL_ABIS: [&str; 4] = ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"];
+
+async fn upload_split_release(
+    client: &Client,
+    base_url: &str,
+    token: &str,
+    slug: &str,
+    via_ci: bool,
+    apks: Vec<(&str, Vec<u8>)>,
+) -> reqwest::Response {
+    let project = create_project(client, base_url, token, slug, slug).await;
+    let project_id = project["id"].as_str().unwrap();
+    let mut form = reqwest::multipart::Form::new()
+        .text("publish", "true")
+        .part(
+            "dm_31",
+            reqwest::multipart::Part::bytes(b"profile".to_vec()).file_name("app.dm"),
+        );
+    for (name, bytes) in apks {
+        form = form.part(
+            "apk",
+            reqwest::multipart::Part::bytes(bytes).file_name(name.to_string()),
+        );
+    }
+    let (url, bearer) = if via_ci {
+        (
+            format!("{base_url}/api/v1/ci/projects/{slug}/release"),
+            ci_token_for(client, base_url, token, project_id).await,
+        )
+    } else {
+        (
+            format!("{base_url}/api/v1/admin/projects/{project_id}/upload"),
+            token.to_string(),
+        )
+    };
+    client
+        .post(url)
+        .bearer_auth(bearer)
+        .multipart(form)
+        .send()
+        .await
+        .expect("upload")
+}
+
+async fn latest_file_name(
+    client: &Client,
+    base_url: &str,
+    slug: &str,
+    abis: Option<&str>,
+) -> Option<String> {
+    let mut url = format!("{base_url}/api/v1/projects/{slug}/latest?sdkInt=34");
+    if let Some(abis) = abis {
+        url.push_str(&format!("&abis={abis}"));
+    }
+    let resp = client.get(url).send().await.expect("latest");
+    if resp.status() == StatusCode::NOT_FOUND {
+        return None;
+    }
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp.json().await.unwrap();
+    assert!(
+        body["dexMetadata"]["downloadUrl"].is_string(),
+        "every split carries the profile: {body}"
+    );
+    let download = client
+        .get(
+            body["downloadUrl"]
+                .as_str()
+                .unwrap()
+                .replacen("http://localhost", base_url, 1),
+        )
+        .send()
+        .await
+        .expect("download");
+    assert_eq!(download.status(), StatusCode::OK);
+    let disposition = download.headers()[reqwest::header::CONTENT_DISPOSITION]
+        .to_str()
+        .unwrap()
+        .to_string();
+    let bytes = download.bytes().await.unwrap();
+    assert_eq!(
+        body["sha256"],
+        kobup_service::apk::compute_sha256(&bytes),
+        "served bytes match the advertised hash"
+    );
+    Some(
+        disposition
+            .trim_start_matches("attachment; filename=\"")
+            .trim_end_matches('"')
+            .to_string(),
+    )
+}
+
+#[tokio::test]
+async fn test_split_apks_serve_each_device_its_best_abi() {
+    let (client, base_url, token) = setup().await;
+
+    for via_ci in [false, true] {
+        for with_universal in [true, false] {
+            let slug = format!("split-{via_ci}-{with_universal}");
+            let package = format!("com.test.split{via_ci}{with_universal}");
+            // The v7a split goes first so upload order can't stand in for preference.
+            let mut apks = vec![
+                (
+                    "app-armeabi-v7a.apk",
+                    create_test_apk_with_abis(&package, 7, "7.0", &["armeabi-v7a"]),
+                ),
+                (
+                    "app-arm64-v8a.apk",
+                    create_test_apk_with_abis(&package, 7, "7.0", &["arm64-v8a"]),
+                ),
+                (
+                    "app-x86_64.apk",
+                    create_test_apk_with_abis(&package, 7, "7.0", &["x86_64"]),
+                ),
+            ];
+            if with_universal {
+                apks.push((
+                    "app-universal.apk",
+                    create_test_apk_with_abis(&package, 7, "7.0", &ALL_ABIS),
+                ));
+            }
+            let resp = upload_split_release(&client, &base_url, &token, &slug, via_ci, apks).await;
+            assert_eq!(resp.status(), StatusCode::CREATED, "{slug}");
+            let body: Value = resp.json().await.unwrap();
+            let artifacts = body["artifacts"].as_array().expect("artifacts array");
+            assert_eq!(artifacts.len(), if with_universal { 4 } else { 3 });
+            for a in artifacts {
+                let expect_universal = a["fileName"] == "app-universal.apk";
+                assert_eq!(a["isUniversal"], expect_universal, "{slug}: {a}");
+            }
+            // Pre-split clients read the single `artifact`; give them the universal APK.
+            if with_universal {
+                assert_eq!(body["artifact"]["fileName"], "app-universal.apk", "{slug}");
+            } else {
+                assert!(body["artifact"]["id"].is_string(), "{slug}");
+            }
+
+            let universal = with_universal.then(|| "app-universal.apk".to_string());
+            for (abis, expected) in [
+                (
+                    Some("arm64-v8a,armeabi-v7a,armeabi"),
+                    Some("app-arm64-v8a.apk".to_string()),
+                ),
+                (
+                    Some("armeabi-v7a,armeabi"),
+                    Some("app-armeabi-v7a.apk".to_string()),
+                ),
+                (
+                    Some("x86_64,x86,arm64-v8a"),
+                    Some("app-x86_64.apk".to_string()),
+                ),
+                (Some("x86"), universal.clone()),
+                (Some("riscv64"), None),
+                (None, universal.clone()),
+            ] {
+                assert_eq!(
+                    latest_file_name(&client, &base_url, &slug, abis).await,
+                    expected,
+                    "{slug} abis={abis:?}"
+                );
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn test_split_apks_must_agree() {
+    let (client, base_url, token) = setup().await;
+    let arm = |pkg: &str, vc| create_test_apk_with_abis(pkg, vc, "1.0", &["arm64-v8a"]);
+    let x86 = |pkg: &str, vc| create_test_apk_with_abis(pkg, vc, "1.0", &["x86_64"]);
+
+    for (slug, apks) in [
+        (
+            "disagree-vc",
+            vec![("a.apk", arm("com.a", 1)), ("b.apk", x86("com.a", 2))],
+        ),
+        (
+            "disagree-pkg",
+            vec![("a.apk", arm("com.a", 1)), ("b.apk", x86("com.b", 1))],
+        ),
+    ] {
+        let resp = upload_split_release(&client, &base_url, &token, slug, true, apks).await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "{slug}");
+        let latest = client
+            .get(format!("{base_url}/api/v1/projects/{slug}/latest"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            latest.status(),
+            StatusCode::NOT_FOUND,
+            "{slug}: nothing stored"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_github_split_assets_ingest_as_one_release() {
+    let apks: Vec<(&str, Vec<u8>)> = vec![
+        (
+            "app-arm64-v8a.apk",
+            create_test_apk_with_abis("com.test.gh", 5, "5.0", &["arm64-v8a"]),
+        ),
+        (
+            "app-x86_64.apk",
+            create_test_apk_with_abis("com.test.gh", 5, "5.0", &["x86_64"]),
+        ),
+    ];
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind github");
+    let gh_url = format!("http://{}", listener.local_addr().unwrap());
+    let assets: Vec<Value> = apks
+        .iter()
+        .map(|(name, _)| json!({"name": name, "browser_download_url": format!("{gh_url}/dl/{name}")}))
+        .collect();
+    let served = Arc::new(apks.clone());
+    let gh =
+        axum::Router::new()
+            .route(
+                "/repos/acme/app/releases/latest",
+                axum::routing::get(move || {
+                    let assets = assets.clone();
+                    async move {
+                        axum::Json(json!({"tag_name": "v5", "body": "notes", "assets": assets}))
+                    }
+                }),
+            )
+            .route(
+                "/dl/{name}",
+                axum::routing::get(
+                    move |axum::extract::Path(name): axum::extract::Path<String>| {
+                        let served = served.clone();
+                        async move {
+                            served
+                                .iter()
+                                .find(|(n, _)| *n == name)
+                                .map(|(_, b)| b.clone())
+                                .unwrap_or_default()
+                        }
+                    },
+                ),
+            );
+    tokio::spawn(async move { axum::serve(listener, gh).await.ok() });
+
+    let (client, base_url, token, pool, root) =
+        setup_with(|c| c.github_api_url = gh_url.clone()).await;
+    let project = create_project(&client, &base_url, &token, "gh-split", "GH Split").await;
+    let project_id = project["id"].as_str().unwrap();
+    let resp = client
+        .post(format!(
+            "{base_url}/api/v1/admin/projects/{project_id}/ingest/github"
+        ))
+        .bearer_auth(&token)
+        .json(&json!({"owner": "acme", "repo": "app"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let project = kobup_service::repositories::projects::get_by_id(&pool, project_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let storage = LocalStorage::new(&root);
+    let mut config = Config::from_env();
+    config.github_api_url = gh_url.clone();
+    for _ in 0..2 {
+        kobup_service::github::poll_project(&pool, &storage, &config, &project)
+            .await
+            .expect("poll");
+    }
+
+    let releases: Value = client
+        .get(format!(
+            "{base_url}/api/v1/admin/projects/{project_id}/releases"
+        ))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let releases = releases.as_array().unwrap();
+    assert_eq!(
+        releases.len(),
+        1,
+        "one release, re-polling adds nothing: {releases:?}"
+    );
+    assert_eq!(releases[0]["versionName"], "v5");
+    assert_eq!(releases[0]["artifacts"].as_array().unwrap().len(), 2);
+
+    for (abis, expected) in [
+        ("arm64-v8a", "app-arm64-v8a.apk"),
+        ("x86_64", "app-x86_64.apk"),
+    ] {
+        assert_eq!(
+            latest_file_name_no_dm(&client, &base_url, "gh-split", abis).await,
+            expected
+        );
+    }
+}
+
+async fn latest_file_name_no_dm(client: &Client, base_url: &str, slug: &str, abis: &str) -> String {
+    let body: Value = client
+        .get(format!(
+            "{base_url}/api/v1/projects/{slug}/latest?abis={abis}"
+        ))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let id = body["artifactId"].as_str().unwrap();
+    let artifact = client
+        .get(format!("{base_url}/api/v1/artifacts/{id}/download"))
+        .send()
+        .await
+        .unwrap();
+    artifact.headers()[reqwest::header::CONTENT_DISPOSITION]
+        .to_str()
+        .unwrap()
+        .trim_start_matches("attachment; filename=\"")
+        .trim_end_matches('"')
+        .to_string()
 }

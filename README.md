@@ -112,6 +112,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 | `KOBUP_API_PORT` / `KOBUP_WEB_PORT` | `8080` / `5175` | No | Host ports (Docker only) |
 | `FCM_SERVICE_ACCOUNT_JSON` | *(none)* | For push | In-container path to a Firebase service account JSON |
 | `KOBUP_GITHUB_TOKEN` | *(none)* | For GitHub ingest | PAT for pulling releases from GitHub Releases |
+| `KOBUP_GITHUB_API_URL` | `https://api.github.com` | No | GitHub API base, for GitHub Enterprise |
 | `GITHUB_POLL_INTERVAL_SECS` | `3600` | No | GitHub poll interval |
 | `MAX_RELEASES_PER_CHANNEL` | `10` | No | Retention per project/channel; older releases pruned hourly |
 | `RUST_LOG` | `info` | No | Tracing filter |
@@ -124,6 +125,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 kobup login                      Print a PIN; enter it under "Login CLI" in the web UI to authenticate
 kobup init --slug <slug>         Link the current directory to a project (.kobup.json)
 kobup push <file.apk>            Upload, create release, publish, notify devices
+kobup push --apk a.apk --apk b.apk   Several APKs (e.g. ABI splits) as one release
 kobup push <file.apk> --channel beta
 kobup push-refresh               Trigger an FCM push without uploading
 kobup status                     Server connectivity and auth status
@@ -168,6 +170,8 @@ Tokens are SHA-256 hashed before storage. The admin session cookie is `kobup_ses
 **Admin (bearer token or session cookie)** — `POST /api/v1/admin/login`, `GET/POST /api/v1/admin/projects`, `POST /api/v1/admin/projects/{id}/upload`, `POST /api/v1/admin/projects/{id}/icon`, `POST /api/v1/admin/releases/{id}/publish`, `POST /api/v1/admin/push-refresh`
 
 **CI (API token)** — `POST /api/v1/ci/projects/{slug}/release`, `POST /api/v1/ci/projects/{slug}/push-refresh`
+
+**ABI splits** — an upload may carry several `apk` fields; they must share package name, version code and signing key, and become one release. `latest` takes the device's `abis` (most preferred first, as `Build.SUPPORTED_ABIS` lists them) and serves the smallest APK whose native code covers the most preferred ABI it can; an APK with no native code fits every device. Without `abis` only a universal APK (no native code, or every ABI the release ships) is served, so upload one alongside the splits for browser downloads and older clients. `publishToKobup` uploads every APK the release build produces.
 
 **Baseline profiles** — an upload may carry the APK's dex metadata as `dm_<minApi>` fields, one per API band (AGP writes them under `baselineProfiles/` with an `output-metadata.json` beside the APK; `kobup push` and `publishToKobup` send them automatically). `latest` returns the band matching the `sdkInt` query as `dexMetadata`, and the Android app stages it with the APK so ART compiles the app at install time instead of leaving it on the JIT.
 

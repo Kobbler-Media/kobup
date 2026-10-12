@@ -7,6 +7,7 @@ import type {
   UpdateProjectInput,
   Channel,
   Release,
+  Artifact,
   Device,
   ApiToken,
   User,
@@ -175,15 +176,15 @@ export async function listReleases(projectId: string): Promise<Release[]> {
   return request(`/api/v1/admin/projects/${projectId}/releases`);
 }
 
-export async function uploadApk(
+export async function uploadApks(
   projectId: string,
-  file: File,
+  files: File[],
   channel: string,
   releaseNotes?: string,
   publish?: boolean
-): Promise<Release> {
+): Promise<{ release: Omit<Release, 'artifacts'>; artifacts: Artifact[] }> {
   const formData = new FormData();
-  formData.append('apk', file);
+  for (const file of files) formData.append('apk', file);
   formData.append('channel', channel);
   if (releaseNotes) formData.append('release_notes', releaseNotes);
   if (publish) formData.append('publish', 'true');

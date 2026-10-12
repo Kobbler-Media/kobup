@@ -57,14 +57,10 @@ export interface Artifact {
   packageName: string;
   sha256: string;
   sizeBytes: number;
-  minSdk: number | null;
-  targetSdk: number | null;
   versionCode: number;
   versionName: string;
-  supportedAbisJson: string;
+  supportedAbis: string[];
   isUniversal: boolean;
-  signingFingerprint: string | null;
-  mimeType: string;
   createdAt: string;
 }
 

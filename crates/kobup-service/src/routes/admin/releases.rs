@@ -28,7 +28,7 @@ struct ReleaseResponse {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ArtifactResponse {
+pub(crate) struct ArtifactResponse {
     id: String,
     release_id: String,
     file_name: String,

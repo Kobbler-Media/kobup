@@ -7,6 +7,7 @@ pub mod fcm;
 pub mod github;
 pub mod http;
 pub mod rate_limit;
+pub mod release_ingest;
 pub mod repositories;
 pub mod retention;
 pub mod routes;

@@ -8,7 +8,7 @@
     createChannel,
     deleteChannel,
     listReleases,
-    uploadApk,
+    uploadApks,
     publishRelease,
     deleteRelease,
     pushRefresh,
@@ -40,7 +40,7 @@
   let uploadingIcon = $state(false);
 
   // Upload state
-  let uploadFile = $state<File | null>(null);
+  let uploadFiles = $state<File[]>([]);
   let uploadChannel = $state('');
   let uploadNotes = $state('');
   let uploadPublish = $state(false);
@@ -131,25 +131,25 @@
 
   function handleFileSelect(e: Event) {
     const input = e.target as HTMLInputElement;
-    uploadFile = input.files?.[0] || null;
+    uploadFiles = Array.from(input.files ?? []);
   }
 
   async function handleUpload(e: Event) {
     e.preventDefault();
-    if (!project || !uploadFile || !uploadChannel) return;
+    if (!project || uploadFiles.length === 0 || !uploadChannel) return;
     uploading = true;
     error = '';
     message = '';
     try {
-      await uploadApk(
+      await uploadApks(
         project.id,
-        uploadFile,
+        uploadFiles,
         uploadChannel,
         uploadNotes || undefined,
         uploadPublish || undefined
       );
-      message = 'APK uploaded successfully.';
-      uploadFile = null;
+      message = `${uploadFiles.length} APK(s) uploaded as one release.`;
+      uploadFiles = [];
       uploadNotes = '';
       await loadData();
     } catch (err) {
@@ -291,9 +291,13 @@
     <form onsubmit={handleUpload} class="card upload-form">
       <div class="form-group">
         <label for="apkFile">
-          APK File
-          <input id="apkFile" type="file" accept=".apk" onchange={handleFileSelect} />
+          APK Files
+          <input id="apkFile" type="file" accept=".apk" multiple onchange={handleFileSelect} />
         </label>
+        <p class="text-muted text-sm" style="margin-top: 4px">
+          Select every ABI split of one build (plus a universal APK) to publish them together; each
+          device downloads the smallest APK it can run.
+        </p>
       </div>
       <div class="form-group">
         <label for="uploadChannel">
@@ -317,7 +321,7 @@
           Publish immediately
         </label>
       </div>
-      <button type="submit" disabled={uploading || !uploadFile}>
+      <button type="submit" disabled={uploading || uploadFiles.length === 0}>
         {uploading ? 'Uploading...' : 'Upload'}
       </button>
     </form>
@@ -335,6 +339,7 @@
             <th>Version</th>
             <th>Code</th>
             <th>Channel</th>
+            <th>APKs</th>
             <th>Status</th>
             <th>Created</th>
             <th>Actions</th>
@@ -346,6 +351,16 @@
               <td><strong>{release.versionName}</strong></td>
               <td>{release.versionCode}</td>
               <td>{release.channelId}</td>
+              <td class="text-sm">
+                {#each release.artifacts as artifact (artifact.id)}
+                  <div title={artifact.fileName}>
+                    {artifact.isUniversal
+                      ? 'universal'
+                      : artifact.supportedAbis.join(', ') || 'no native code'}
+                    <span class="text-muted">· {(artifact.sizeBytes / 1048576).toFixed(1)} MB</span>
+                  </div>
+                {/each}
+              </td>
               <td>
                 {#if release.publishedAt}
                   <span class="badge published">Published</span>

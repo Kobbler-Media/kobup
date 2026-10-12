@@ -2,6 +2,7 @@ pub mod admin;
 pub mod ci;
 pub mod health;
 pub mod public;
+mod release_upload;
 
 use axum::extract::{FromRef, FromRequestParts};
 use axum::http::request::Parts;

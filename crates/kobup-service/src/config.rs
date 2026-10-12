@@ -13,6 +13,7 @@ pub struct Config {
     pub token_length: usize,
     pub fcm_service_account_json: Option<String>,
     pub github_token: Option<String>,
+    pub github_api_url: String,
     pub max_releases_per_channel: usize,
     pub github_poll_interval_secs: u64,
     pub trusted_proxy_hops: usize,
@@ -55,6 +56,9 @@ impl Config {
             .unwrap_or(32);
         let fcm_service_account_json = env::var("FCM_SERVICE_ACCOUNT_JSON").ok();
         let github_token = env::var("KOBUP_GITHUB_TOKEN").ok();
+        let github_api_url = non_blank(env::var("KOBUP_GITHUB_API_URL").ok())
+            .map(|v| v.trim().trim_end_matches('/').to_string())
+            .unwrap_or_else(|| "https://api.github.com".into());
         let max_releases_per_channel = env::var("MAX_RELEASES_PER_CHANNEL")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -83,6 +87,7 @@ impl Config {
             token_length,
             fcm_service_account_json,
             github_token,
+            github_api_url,
             max_releases_per_channel,
             github_poll_interval_secs,
             trusted_proxy_hops,

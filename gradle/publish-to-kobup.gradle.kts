@@ -69,7 +69,7 @@ tasks.register("publishToKobup") {
         }
 
         publishApkDir.listFiles()?.filter { it.name.endsWith(".apk") }?.forEach { it.delete() }
-        logger.lifecycle("Building release APK...")
+        logger.lifecycle("Building release APK(s)...")
         val (buildExit, buildOutput) = run(File(publishRootDir, "gradlew").absolutePath, "$publishModulePath:assembleRelease")
         if (buildExit != 0) fail("assembleRelease failed:\n$buildOutput")
 
@@ -78,8 +78,7 @@ tasks.register("publishToKobup") {
         // can install it.
         val unsigned = apks.filter { it.name.endsWith("-unsigned.apk") }
         if (unsigned.isNotEmpty()) fail("Refusing to publish unsigned APK: ${unsigned.joinToString { it.name }}")
-        val apk = apks.singleOrNull()
-            ?: fail("Expected one release APK in ${publishApkDir.absolutePath}, found ${apks.size}: ${apks.joinToString { it.name }}")
+        if (apks.isEmpty()) fail("No release APK in ${publishApkDir.absolutePath}")
 
         // The baseline profile as dex metadata, one per API band, so the installer can have
         // ART compile the app at install time rather than leave it on the JIT.
@@ -102,15 +101,17 @@ tasks.register("publishToKobup") {
             "-d", """{"slug":"$slug","name":"$projectName","packageName":"$packageName"}""",
         )
 
-        logger.lifecycle("Publishing ${apk.name} (v$newName code $newCode) with ${dmFields.size / 2} profile(s) to $server")
+        // ABI splits go up in one request: the server files them under one release and
+        // hands each device the smallest APK its ABIs can run.
+        val apkFields = apks.flatMap { listOf("-F", "apk=@${it.absolutePath}") }
+        logger.lifecycle("Publishing ${apks.joinToString { it.name }} (v$newName code $newCode) with ${dmFields.size / 2} profile(s) to $server")
         val (uploadExit, uploadOutput) = run(
             *arrayOf(
                 "curl", "-s", "-f", "-X", "POST", "$server/api/v1/ci/projects/$slug/release",
                 "-H", "Authorization: Bearer $token",
-                "-F", "apk=@${apk.absolutePath}",
                 "-F", "channel=$channel",
                 "-F", "publish=true",
-            ) + dmFields,
+            ) + apkFields + dmFields,
         )
         if (uploadExit != 0) fail("Kobup publish failed (exit $uploadExit):\n$uploadOutput")
         logger.lifecycle("Published successfully:\n$uploadOutput")
