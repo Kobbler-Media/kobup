@@ -11,17 +11,25 @@ import com.kobup.app.data.model.CatalogItem
 import com.kobup.app.data.model.DeviceRegisterRequest
 import com.kobup.app.data.model.InstallEventBody
 import com.kobup.app.data.model.LatestBySlugResponse
+import com.google.firebase.FirebaseApp
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class AppRepository(private val context: Context) {
 
     private val prefs = PrefsManager(context)
     private var api: KobupApi? = null
 
-    private val _catalog = MutableStateFlow<List<CatalogItem>>(emptyList())
-    val catalog: StateFlow<List<CatalogItem>> = _catalog.asStateFlow()
+    companion object {
+        // Process-wide so a push-triggered SyncWorker refresh reaches screens already on display.
+        private val _catalog = MutableStateFlow<List<CatalogItem>>(emptyList())
+        val catalog: StateFlow<List<CatalogItem>> = _catalog.asStateFlow()
+    }
 
     suspend fun ensureApi(): KobupApi {
         api?.let { return it }
@@ -51,6 +59,20 @@ class AppRepository(private val context: Context) {
         val response = ensureApi().registerDevice(request)
         prefs.saveDeviceId(response.deviceId)
         return response.deviceId
+    }
+
+    suspend fun syncPushToken() {
+        if (FirebaseApp.getApps(context).isEmpty()) return
+        val token = suspendCancellableCoroutine { cont ->
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    cont.resume(task.result)
+                } else {
+                    cont.resumeWithException(task.exception ?: IllegalStateException("FCM token unavailable"))
+                }
+            }
+        }
+        registerPushToken(token)
     }
 
     suspend fun registerPushToken(fcmToken: String) {

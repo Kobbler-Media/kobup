@@ -39,6 +39,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,10 +56,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import coil3.compose.AsyncImage
+import com.kobup.app.data.availableUpdates
+import com.kobup.app.data.hasUpdate
 import com.kobup.app.data.model.CatalogItem
 import com.kobup.app.data.model.LatestBySlugResponse
 import com.kobup.app.data.repository.AppRepository
+import com.kobup.app.ui.components.rememberInstalledPackagesVersion
 import com.kobup.app.ui.components.requestFocusSafely
 import com.kobup.app.ui.components.tvFocusable
 import kotlinx.coroutines.launch
@@ -76,21 +81,30 @@ fun CatalogScreen(
     val repo = remember { AppRepository(context) }
     val scope = rememberCoroutineScope()
 
-    var catalog by remember { mutableStateOf<List<CatalogItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val catalog by AppRepository.catalog.collectAsState()
+    val installedPackagesVersion = rememberInstalledPackagesVersion()
+    val installedVersions = remember(catalog, installedPackagesVersion) {
+        catalog.associate { it.packageName to repo.getInstalledVersion(it.packageName) }
+    }
+    var isLoading by remember { mutableStateOf(catalog.isEmpty()) }
     var isRefreshing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var selfUpdate by remember { mutableStateOf<LatestBySlugResponse?>(null) }
 
     fun refresh(showRefreshIndicator: Boolean = false) {
         scope.launch {
-            if (showRefreshIndicator) isRefreshing = true else isLoading = true
-            error = null
+            val surfaceErrors = showRefreshIndicator || catalog.isEmpty()
+            when {
+                showRefreshIndicator -> isRefreshing = true
+                catalog.isEmpty() -> isLoading = true
+            }
+            if (surfaceErrors) error = null
             try {
-                catalog = repo.refreshCatalog()
+                repo.refreshCatalog()
                 selfUpdate = repo.checkSelfUpdate()
+                error = null
             } catch (e: Exception) {
-                error = e.message ?: "Failed to load catalog"
+                if (surfaceErrors) error = e.message ?: "Failed to load catalog"
             } finally {
                 isLoading = false
                 isRefreshing = false
@@ -98,7 +112,10 @@ fun CatalogScreen(
         }
     }
 
-    LaunchedEffect(Unit) { refresh() }
+    LifecycleResumeEffect(Unit) {
+        refresh()
+        onPauseOrDispose {}
+    }
 
     val initialFocusRequester = remember { FocusRequester() }
     val firstCardFocusRequester = remember { FocusRequester() }
@@ -220,7 +237,7 @@ fun CatalogScreen(
                 isTv -> {
                     TvCatalogGrid(
                         catalog = catalog,
-                        repo = repo,
+                        installedVersions = installedVersions,
                         onAppClick = onAppClick,
                         firstCardFocusRequester = firstCardFocusRequester,
                         modifier = Modifier
@@ -236,7 +253,7 @@ fun CatalogScreen(
                         onRefresh = { refresh(showRefreshIndicator = true) },
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        PhoneCatalogList(catalog, repo, onAppClick)
+                        PhoneCatalogList(catalog, installedVersions, onAppClick)
                     }
                 }
             }
@@ -256,15 +273,10 @@ fun CatalogScreen(
 @Composable
 private fun PhoneCatalogList(
     catalog: List<CatalogItem>,
-    repo: AppRepository,
+    installedVersions: Map<String, String?>,
     onAppClick: (CatalogItem) -> Unit,
 ) {
-    val updates = remember(catalog) {
-        catalog.filter { item ->
-            val installed = repo.getInstalledVersion(item.packageName)
-            installed != null && item.latestVersion != null && installed != item.latestVersion.versionName
-        }
-    }
+    val updates = remember(catalog, installedVersions) { availableUpdates(catalog, installedVersions::get) }
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -280,7 +292,7 @@ private fun PhoneCatalogList(
                 )
             }
             items(updates, key = { "update-${it.id}" }) { item ->
-                AppCard(item, repo, isTv = false, onClick = { onAppClick(item) })
+                AppCard(item, installedVersions[item.packageName], isTv = false, onClick = { onAppClick(item) })
             }
             item {
                 Spacer(Modifier.height(8.dp))
@@ -293,7 +305,7 @@ private fun PhoneCatalogList(
             }
         }
         items(catalog, key = { it.id }) { item ->
-            AppCard(item, repo, isTv = false, onClick = { onAppClick(item) })
+            AppCard(item, installedVersions[item.packageName], isTv = false, onClick = { onAppClick(item) })
         }
     }
 }
@@ -301,17 +313,12 @@ private fun PhoneCatalogList(
 @Composable
 private fun TvCatalogGrid(
     catalog: List<CatalogItem>,
-    repo: AppRepository,
+    installedVersions: Map<String, String?>,
     onAppClick: (CatalogItem) -> Unit,
     firstCardFocusRequester: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
-    val updates = remember(catalog) {
-        catalog.filter { item ->
-            val installed = repo.getInstalledVersion(item.packageName)
-            installed != null && item.latestVersion != null && installed != item.latestVersion.versionName
-        }
-    }
+    val updates = remember(catalog, installedVersions) { availableUpdates(catalog, installedVersions::get) }
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(280.dp),
@@ -332,7 +339,7 @@ private fun TvCatalogGrid(
             items(updates, key = { "update-${it.id}" }) { item ->
                 AppCard(
                     item = item,
-                    repo = repo,
+                    installedVersion = installedVersions[item.packageName],
                     isTv = true,
                     focusRequester = if (item.id == updates.first().id) firstCardFocusRequester else null,
                     onClick = { onAppClick(item) },
@@ -350,7 +357,7 @@ private fun TvCatalogGrid(
         items(catalog, key = { it.id }) { item ->
             AppCard(
                 item = item,
-                repo = repo,
+                installedVersion = installedVersions[item.packageName],
                 isTv = true,
                 focusRequester = if (updates.isEmpty() && item.id == catalog.firstOrNull()?.id) {
                     firstCardFocusRequester
@@ -366,15 +373,12 @@ private fun TvCatalogGrid(
 @Composable
 private fun AppCard(
     item: CatalogItem,
-    repo: AppRepository,
+    installedVersion: String?,
     isTv: Boolean,
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
 ) {
-    val installedVersion = remember(item.packageName) { repo.getInstalledVersion(item.packageName) }
-    val hasUpdate = installedVersion != null &&
-        item.latestVersion != null &&
-        installedVersion != item.latestVersion.versionName
+    val hasUpdate = hasUpdate(installedVersion, item.latestVersion)
 
     val iconSize = if (isTv) 64.dp else 48.dp
     val cardPadding = if (isTv) 20.dp else 16.dp

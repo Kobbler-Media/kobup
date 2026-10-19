@@ -1,0 +1,76 @@
+package com.kobup.app.service
+
+import android.Manifest
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationChannelCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+import com.kobup.app.MainActivity
+import com.kobup.app.R
+import com.kobup.app.data.availableUpdates
+import com.kobup.app.data.model.CatalogItem
+import com.kobup.app.data.unnotified
+
+object UpdateNotifier {
+
+    private const val CHANNEL_ID = "updates"
+    private const val PREFS_NAME = "kobup_notified_updates"
+
+    fun sync(context: Context, catalog: List<CatalogItem>, installedVersion: (String) -> String?) {
+        val manager = NotificationManagerCompat.from(context)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val notified = prefs.all.mapNotNull { (pkg, code) -> (code as? Long)?.let { pkg to it } }.toMap()
+        val updates = availableUpdates(catalog, installedVersion)
+
+        prefs.edit {
+            val stillPending = updates.map { it.packageName }.toSet()
+            notified.keys.filterNot { it in stillPending }.forEach { pkg ->
+                manager.cancel(pkg.hashCode())
+                remove(pkg)
+            }
+
+            if (!canNotify(context, manager)) return@edit
+            manager.createNotificationChannel(
+                NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_DEFAULT)
+                    .setName("App updates")
+                    .build(),
+            )
+            val openApp = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
+            unnotified(updates, notified).forEach { item ->
+                val latest = item.latestVersion ?: return@forEach
+                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_stat_update)
+                    .setContentTitle("${item.name} update available")
+                    .setContentText("Version ${latest.versionName} is ready to install")
+                    .setContentIntent(openApp)
+                    .setAutoCancel(true)
+                    .build()
+                try {
+                    manager.notify(item.packageName.hashCode(), notification)
+                    putLong(item.packageName, latest.versionCode)
+                } catch (_: SecurityException) {
+                    // Permission revoked between the check and the post.
+                }
+            }
+        }
+    }
+
+    private fun canNotify(context: Context, manager: NotificationManagerCompat): Boolean {
+        if (!manager.areNotificationsEnabled()) return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+}

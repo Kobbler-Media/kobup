@@ -3,7 +3,9 @@ package com.kobup.app
 import android.app.Application
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import coil3.ImageLoader
@@ -17,7 +19,7 @@ class KobupApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
-        schedulPeriodicSync()
+        scheduleSync()
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =
@@ -25,7 +27,7 @@ class KobupApp : Application(), SingletonImageLoader.Factory {
             .components { add(OkHttpNetworkFetcherFactory()) }
             .build()
 
-    private fun schedulPeriodicSync() {
+    private fun scheduleSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -38,6 +40,14 @@ class KobupApp : Application(), SingletonImageLoader.Factory {
             "kobup_sync",
             ExistingPeriodicWorkPolicy.KEEP,
             syncRequest,
+        )
+
+        // Push tokens only reach the server via sync, so run one per launch rather than
+        // waiting up to six hours for the periodic job.
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "kobup_sync_launch",
+            ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints).build(),
         )
     }
 }

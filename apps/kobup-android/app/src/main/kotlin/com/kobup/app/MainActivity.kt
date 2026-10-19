@@ -1,11 +1,16 @@
 package com.kobup.app
 
+import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -55,6 +60,15 @@ private fun KobupNavHost() {
 
     val startDest = if (setupDone) "catalog" else "setup"
 
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {}
+    LaunchedEffect(setupDone) {
+        if (setupDone && !isTv && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     NavHost(navController = navController, startDestination = startDest) {
         composable("setup") {
             SetupScreen(
@@ -85,7 +99,7 @@ private fun KobupNavHost() {
             val decoded = android.net.Uri.decode(itemJson)
             val item = json.decodeFromString<CatalogItem>(decoded)
             AppDetailScreen(
-                item = item,
+                initialItem = item,
                 onBack = { navController.popBackStack() },
             )
         }

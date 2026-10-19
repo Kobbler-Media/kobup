@@ -3,6 +3,7 @@ package com.kobup.app.ui.screens
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -103,6 +104,11 @@ fun SetupScreen(
             // Register device
             val deviceName = Build.MODEL
             repo.registerDevice(deviceName, isTv)
+            try {
+                repo.syncPushToken()
+            } catch (e: Exception) {
+                Log.w("Kobup", "Push token registration failed", e)
+            }
             step = if (needsInstallPermission()) {
                 SetupStep.CHECK_PERMISSIONS
             } else {

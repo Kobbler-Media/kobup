@@ -28,6 +28,7 @@ pub async fn push_refresh(
     };
 
     if tokens.is_empty() {
+        warn!("no devices have registered a push token, skipping push refresh");
         return StatusCode::OK;
     }
 

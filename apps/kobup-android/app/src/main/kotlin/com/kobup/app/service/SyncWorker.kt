@@ -21,8 +21,14 @@ class SyncWorker(
 
         return try {
             val repo = AppRepository(applicationContext)
-            repo.refreshCatalog()
+            val catalog = repo.refreshCatalog()
+            UpdateNotifier.sync(applicationContext, catalog, repo::getInstalledVersion)
             repo.heartbeat()
+            try {
+                repo.syncPushToken()
+            } catch (e: Exception) {
+                Log.w("Kobup", "Push token sync failed", e)
+            }
             Log.i("Kobup", "Sync completed successfully")
             Result.success()
         } catch (e: Exception) {

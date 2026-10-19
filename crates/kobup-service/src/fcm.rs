@@ -43,6 +43,23 @@ fn mint_assertion_jwt(
     jsonwebtoken::encode(&Header::new(Algorithm::RS256), &claims, &key)
 }
 
+// Data-only so the app decides whether a user-visible notification is warranted.
+// Normal priority is deferred by Doze for hours, so a fresh release would not
+// show up until the device next wakes for maintenance.
+fn refresh_message(device_token: &str, project_slug: &str, channel: &str) -> serde_json::Value {
+    serde_json::json!({
+        "message": {
+            "token": device_token,
+            "android": { "priority": "high" },
+            "data": {
+                "type": "refresh",
+                "projectSlug": project_slug,
+                "channel": channel,
+            }
+        }
+    })
+}
+
 pub struct FcmClient {
     service_account: ServiceAccount,
     http_client: reqwest::Client,
@@ -120,16 +137,7 @@ impl FcmClient {
         let mut fail_count = 0u32;
 
         for device_token in tokens {
-            let payload = serde_json::json!({
-                "message": {
-                    "token": device_token,
-                    "data": {
-                        "type": "refresh",
-                        "projectSlug": project_slug,
-                        "channel": channel,
-                    }
-                }
-            });
+            let payload = refresh_message(device_token, project_slug, channel);
 
             match self
                 .http_client
@@ -180,6 +188,18 @@ mod tests {
 
     const TEST_ISSUER: &str = "fcm@kobup-test.iam.gserviceaccount.com";
     const TEST_AUDIENCE: &str = "https://oauth2.googleapis.com/token";
+
+    #[test]
+    fn refresh_message_is_high_priority_data_message() {
+        let msg = refresh_message("device-tok", "kobbler", "stable");
+
+        assert_eq!(msg["message"]["token"], "device-tok");
+        assert_eq!(msg["message"]["android"]["priority"], "high");
+        assert_eq!(msg["message"]["data"]["type"], "refresh");
+        assert_eq!(msg["message"]["data"]["projectSlug"], "kobbler");
+        assert_eq!(msg["message"]["data"]["channel"], "stable");
+        assert!(msg["message"].get("notification").is_none());
+    }
 
     #[test]
     fn rs256_assertion_jwt_signs_and_verifies() {

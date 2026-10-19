@@ -49,11 +49,14 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.kobup.app.data.hasUpdate
 import com.kobup.app.data.model.CatalogItem
 import com.kobup.app.data.model.LatestBySlugResponse
 import com.kobup.app.data.repository.AppRepository
 import com.kobup.app.service.InstallResultReceiver
 import com.kobup.app.service.InstallService
+import com.kobup.app.ui.components.rememberInstalledPackagesVersion
 import com.kobup.app.ui.components.requestFocusSafely
 import com.kobup.app.ui.components.tvFocusable
 import android.content.pm.PackageInstaller
@@ -71,7 +74,7 @@ enum class InstallState {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailScreen(
-    item: CatalogItem,
+    initialItem: CatalogItem,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -82,14 +85,21 @@ fun AppDetailScreen(
     val installService = remember { InstallService(context) }
     val scope = rememberCoroutineScope()
 
-    val installedVersion = remember(item.packageName) { repo.getInstalledVersion(item.packageName) }
-    val installedVersionCode = remember(item.packageName) { repo.getInstalledVersionCode(item.packageName) }
+    val catalog by AppRepository.catalog.collectAsState()
+    val item = catalog.find { it.slug == initialItem.slug } ?: initialItem
+    val installedPackagesVersion = rememberInstalledPackagesVersion()
+    val installedVersion = remember(item.packageName, installedPackagesVersion) {
+        repo.getInstalledVersion(item.packageName)
+    }
+    val installedVersionCode = remember(item.packageName, installedPackagesVersion) {
+        repo.getInstalledVersionCode(item.packageName)
+    }
     val isInstalled = installedVersion != null
     val launchIntent = remember(item.packageName, isInstalled) {
         if (isInstalled) repo.getLaunchIntent(item.packageName) else null
     }
     val latestVersionName = item.latestVersion?.versionName
-    val hasUpdate = isInstalled && latestVersionName != null && installedVersion != latestVersionName
+    val hasUpdate = hasUpdate(installedVersion, item.latestVersion)
 
     var artifactInfo by remember { mutableStateOf<LatestBySlugResponse?>(null) }
     var artifactLoading by remember { mutableStateOf(true) }
@@ -112,8 +122,19 @@ fun AppDetailScreen(
         }
     }
 
-    LaunchedEffect(item.slug) {
-        artifactLoading = true
+    LifecycleResumeEffect(Unit) {
+        scope.launch {
+            try {
+                repo.refreshCatalog()
+            } catch (_: Exception) {
+                // Keep showing what we have; the catalog screen surfaces load errors.
+            }
+        }
+        onPauseOrDispose {}
+    }
+
+    LaunchedEffect(item.slug, item.latestVersion?.versionCode) {
+        if (artifactInfo == null) artifactLoading = true
         try {
             artifactInfo = repo.getLatestBySlug(item.slug)
         } catch (_: Exception) {
