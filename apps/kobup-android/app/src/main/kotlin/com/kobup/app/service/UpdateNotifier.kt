@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationChannelCompat
@@ -15,6 +16,7 @@ import com.kobup.app.MainActivity
 import com.kobup.app.R
 import com.kobup.app.data.availableUpdates
 import com.kobup.app.data.model.CatalogItem
+import com.kobup.app.data.resolvedNotifications
 import com.kobup.app.data.unnotified
 
 object UpdateNotifier {
@@ -24,8 +26,8 @@ object UpdateNotifier {
 
     fun sync(context: Context, catalog: List<CatalogItem>, installedVersion: (String) -> String?) {
         val manager = NotificationManagerCompat.from(context)
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val notified = prefs.all.mapNotNull { (pkg, code) -> (code as? Long)?.let { pkg to it } }.toMap()
+        val prefs = prefs(context)
+        val notified = notified(prefs)
         val updates = availableUpdates(catalog, installedVersion)
 
         prefs.edit {
@@ -66,6 +68,25 @@ object UpdateNotifier {
             }
         }
     }
+
+    // Runs off package-change broadcasts with no network, so it can only retire notifications, never post them.
+    fun dismissResolved(context: Context, installedVersionCode: (String) -> Long?) {
+        val manager = NotificationManagerCompat.from(context)
+        val prefs = prefs(context)
+        val resolved = resolvedNotifications(notified(prefs), installedVersionCode)
+        if (resolved.isEmpty()) return
+        prefs.edit {
+            resolved.forEach { pkg ->
+                manager.cancel(pkg.hashCode())
+                remove(pkg)
+            }
+        }
+    }
+
+    private fun prefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun notified(prefs: SharedPreferences): Map<String, Long> =
+        prefs.all.mapNotNull { (pkg, code) -> (code as? Long)?.let { pkg to it } }.toMap()
 
     private fun canNotify(context: Context, manager: NotificationManagerCompat): Boolean {
         if (!manager.areNotificationsEnabled()) return false

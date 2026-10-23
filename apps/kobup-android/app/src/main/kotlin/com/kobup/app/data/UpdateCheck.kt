@@ -11,3 +11,6 @@ fun availableUpdates(catalog: List<CatalogItem>, installedVersion: (String) -> S
 
 fun unnotified(updates: List<CatalogItem>, notifiedVersionCodes: Map<String, Long>): List<CatalogItem> =
     updates.filter { notifiedVersionCodes[it.packageName] != it.latestVersion?.versionCode }
+
+fun resolvedNotifications(notifiedVersionCodes: Map<String, Long>, installedVersionCode: (String) -> Long?): Set<String> =
+    notifiedVersionCodes.filter { (pkg, notified) -> installedVersionCode(pkg)?.let { it >= notified } ?: true }.keys

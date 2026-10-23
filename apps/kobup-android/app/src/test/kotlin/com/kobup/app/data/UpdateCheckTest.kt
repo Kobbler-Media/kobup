@@ -46,4 +46,18 @@ class UpdateCheckTest {
 
         assertEquals(listOf("b"), unnotified(updates, notified).map { it.packageName })
     }
+
+    @Test
+    fun resolvedNotificationsCases() {
+        data class Case(val notified: Long, val installed: Long?, val resolved: Boolean)
+        listOf(
+            Case(notified = 11, installed = 10, resolved = false),
+            Case(notified = 11, installed = 11, resolved = true),
+            Case(notified = 11, installed = 12, resolved = true),
+            Case(notified = 11, installed = null, resolved = true),
+        ).forEach { c ->
+            val resolved = resolvedNotifications(mapOf("a" to c.notified)) { c.installed }
+            assertEquals(c.toString(), if (c.resolved) setOf("a") else emptySet<String>(), resolved)
+        }
+    }
 }

@@ -12,6 +12,7 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.kobup.app.service.PackageChangeReceiver
 import com.kobup.app.service.SyncWorker
 import java.util.concurrent.TimeUnit
 
@@ -19,6 +20,8 @@ class KobupApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        PackageChangeReceiver.register(this)
+        PackageChangeReceiver.dismissResolved(this)
         scheduleSync()
     }
 
