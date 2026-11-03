@@ -1,4 +1,4 @@
-FROM rust:1.96-bookworm AS base
+FROM rust:1.99-trixie AS base
 WORKDIR /app
 RUN cargo install cargo-watch
 COPY Cargo.toml Cargo.lock ./
@@ -15,7 +15,7 @@ FROM base AS builder
 ENV SQLX_OFFLINE=true
 RUN cargo build --release -p kobup-service
 
-FROM debian:bookworm-slim AS prod
+FROM debian:trixie-slim AS prod
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/target/release/kobup-service /app/kobup-service

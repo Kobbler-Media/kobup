@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listProjects } from '$lib/api/client';
-  import type { Project } from '$lib/types';
+  import { listProjects } from '#lib/api/client.js';
+  import type { Project } from '#lib/types.js';
 
   let projects = $state<Project[]>([]);
   let loading = $state(true);

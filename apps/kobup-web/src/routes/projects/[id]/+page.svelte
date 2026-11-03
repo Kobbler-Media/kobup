@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
   import {
     getProject,
     updateProject,
@@ -13,11 +13,11 @@
     deleteRelease,
     pushRefresh,
     uploadProjectIcon
-  } from '$lib/api/client';
+  } from '#lib/api/client.js';
   import { goto } from '$app/navigation';
-  import type { ProjectDetail, Release } from '$lib/types';
+  import type { ProjectDetail, Release } from '#lib/types.js';
 
-  const projectId = $derived($page.params.id as string);
+  const projectId = $derived(page.params.id as string);
 
   let project = $state<ProjectDetail | null>(null);
   let releases = $state<Release[]>([]);

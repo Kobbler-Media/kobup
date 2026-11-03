@@ -14,10 +14,10 @@ jobs:
     name: crates (rust)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.96"
+          toolchain: "1.99"
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
@@ -31,10 +31,10 @@ jobs:
       run:
         working-directory: apps/kobup-web
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
           cache-dependency-path: apps/kobup-web/package-lock.json
       - run: npm ci
@@ -45,5 +45,5 @@ jobs:
     name: docker build (smoke test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - run: docker compose build api web

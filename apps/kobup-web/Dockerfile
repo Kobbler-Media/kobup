@@ -1,4 +1,4 @@
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -12,7 +12,7 @@ FROM deps AS builder
 COPY . .
 RUN npm run build
 
-FROM nginx:1.29.8-alpine AS prod
+FROM nginx:1.30.6-alpine AS prod
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/build /usr/share/nginx/html
 EXPOSE 80

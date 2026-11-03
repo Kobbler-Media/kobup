@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listDevices } from '$lib/api/client';
-  import type { Device } from '$lib/types';
+  import { listDevices } from '#lib/api/client.js';
+  import type { Device } from '#lib/types.js';
 
   let devices = $state<Device[]>([]);
   let loading = $state(true);

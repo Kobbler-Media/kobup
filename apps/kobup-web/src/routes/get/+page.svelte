@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import QRCode from 'qrcode';
-  import { getLatestRelease, ApiError } from '$lib/api/client';
-  import type { LatestRelease } from '$lib/types';
+  import { getLatestRelease, ApiError } from '#lib/api/client.js';
+  import type { LatestRelease } from '#lib/types.js';
 
   let release = $state<LatestRelease | null>(null);
   let qrDataUrl = $state('');

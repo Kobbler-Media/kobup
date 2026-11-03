@@ -12,7 +12,7 @@ import type {
   ApiToken,
   User,
   LatestRelease
-} from '$lib/types';
+} from '#lib/types.js';
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || '';
 

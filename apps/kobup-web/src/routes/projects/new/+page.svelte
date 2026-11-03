@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { createProject } from '$lib/api/client';
+  import { createProject } from '#lib/api/client.js';
 
   let slug = $state('');
   let name = $state('');

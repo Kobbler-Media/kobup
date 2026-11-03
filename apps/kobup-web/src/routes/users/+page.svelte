@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listUsers, createUser, deleteUser, resetUserPassword, me } from '$lib/api/client';
-  import type { User, MeResponse } from '$lib/types';
+  import { listUsers, createUser, deleteUser, resetUserPassword, me } from '#lib/api/client.js';
+  import type { User, MeResponse } from '#lib/types.js';
 
   let users = $state<User[]>([]);
   let loading = $state(true);

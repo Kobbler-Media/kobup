@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { pinLoginDevice, pinLoginCli } from '$lib/api/client';
+  import { pinLoginDevice, pinLoginCli } from '#lib/api/client.js';
 
   let loginType = $state<'device' | 'cli'>('device');
   let pin = $state('');

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
-  import { me, login, logout as apiLogout } from '$lib/api/client';
-  import { ApiError } from '$lib/api/client';
+  import { page } from '$app/state';
+  import { me, login, logout as apiLogout } from '#lib/api/client.js';
+  import { ApiError } from '#lib/api/client.js';
   import '../app.css';
 
   let { children } = $props();
@@ -13,7 +13,7 @@
   function pathIsPublic(path: string): boolean {
     return PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'));
   }
-  let isPublic = $derived(pathIsPublic($page.url.pathname));
+  let isPublic = $derived(pathIsPublic(page.url.pathname));
 
   let authed = $state(false);
   let hydrated = $state(false);
@@ -61,7 +61,7 @@
   }
 
   function isActive(href: string): boolean {
-    return $page.url.pathname === href || $page.url.pathname.startsWith(href + '/');
+    return page.url.pathname === href || page.url.pathname.startsWith(href + '/');
   }
 
   async function handleLogin(e: Event) {
@@ -75,8 +75,8 @@
       userEmail = resp.email;
       loginEmail = '';
       loginPassword = '';
-      if ($page.url.pathname === '/' || $page.url.pathname === '/login') {
-        goto('/projects', { replaceState: true });
+      if (page.url.pathname === '/' || page.url.pathname === '/login') {
+        goto('/projects', { replace: true });
       }
     } catch (err) {
       loginError = err instanceof Error ? err.message : 'Login failed';
@@ -111,9 +111,9 @@
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         if (
-          $page.url.pathname !== '/login' &&
-          $page.url.pathname !== '/' &&
-          !pathIsPublic($page.url.pathname)
+          page.url.pathname !== '/login' &&
+          page.url.pathname !== '/' &&
+          !pathIsPublic(page.url.pathname)
         ) {
           goto('/login');
         }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listTokens, createToken, revokeToken, listProjects } from '$lib/api/client';
-  import type { ApiToken, Project } from '$lib/types';
+  import { listTokens, createToken, revokeToken, listProjects } from '#lib/api/client.js';
+  import type { ApiToken, Project } from '#lib/types.js';
 
   let tokens = $state<ApiToken[]>([]);
   let projects = $state<Project[]>([]);

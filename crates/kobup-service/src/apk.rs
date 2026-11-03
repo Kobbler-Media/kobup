@@ -45,7 +45,7 @@ pub fn extract_metadata(data: &[u8]) -> Result<ApkMetadata, ApkError> {
     }
 
     // ABI detection always works (just checking zip entries)
-    metadata.abis = detect_abis(&mut archive);
+    metadata.abis = detect_abis(&archive);
 
     // Signing fingerprint extraction; failure is non-fatal
     metadata.signing_fingerprint = extract_signing_fingerprint(&mut archive);
@@ -149,17 +149,15 @@ fn parse_manifest_int(s: &str) -> Option<u32> {
 /// which is still deterministic per signing key.
 fn extract_signing_fingerprint(archive: &mut ZipArchive<Cursor<&[u8]>>) -> Option<String> {
     // Find the first META-INF/*.RSA or *.DSA entry
-    let signing_entry_name = (0..archive.len()).find_map(|i| {
-        let entry = archive.by_index(i).ok()?;
-        let name = entry.name().to_string();
-        if (name.starts_with("META-INF/") || name.starts_with("META-INF\\"))
-            && (name.to_uppercase().ends_with(".RSA") || name.to_uppercase().ends_with(".DSA"))
-        {
-            Some(name)
-        } else {
-            None
-        }
-    })?;
+    let signing_entry_name = archive
+        .file_names()
+        .filter_map(Result::ok)
+        .find(|name| {
+            let upper = name.to_uppercase();
+            (name.starts_with("META-INF/") || name.starts_with("META-INF\\"))
+                && (upper.ends_with(".RSA") || upper.ends_with(".DSA"))
+        })?
+        .into_owned();
 
     let mut entry = archive.by_name(&signing_entry_name).ok()?;
     let mut buf = Vec::new();
@@ -290,18 +288,14 @@ fn read_der_length(data: &[u8], pos: usize) -> Option<(usize, usize)> {
     }
 }
 
-fn detect_abis(archive: &mut ZipArchive<Cursor<&[u8]>>) -> Vec<String> {
-    let mut found = Vec::new();
-    for abi in KNOWN_ABIS {
-        let prefix = format!("lib/{abi}/");
-        for i in 0..archive.len() {
-            if let Ok(entry) = archive.by_index(i)
-                && entry.name().starts_with(&prefix)
-            {
-                found.push((*abi).to_string());
-                break;
-            }
-        }
-    }
-    found
+fn detect_abis(archive: &ZipArchive<Cursor<&[u8]>>) -> Vec<String> {
+    let names: Vec<_> = archive.file_names().filter_map(Result::ok).collect();
+    KNOWN_ABIS
+        .iter()
+        .filter(|abi| {
+            let prefix = format!("lib/{abi}/");
+            names.iter().any(|name| name.starts_with(&prefix))
+        })
+        .map(|abi| (*abi).to_string())
+        .collect()
 }

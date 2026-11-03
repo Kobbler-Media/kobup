@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { me, changeEmail, changePassword } from '$lib/api/client';
-  import type { MeResponse } from '$lib/types';
+  import { me, changeEmail, changePassword } from '#lib/api/client.js';
+  import type { MeResponse } from '#lib/types.js';
 
   let user = $state<MeResponse | null>(null);
 
