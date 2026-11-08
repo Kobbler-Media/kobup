@@ -14,3 +14,11 @@ fun unnotified(updates: List<CatalogItem>, notifiedVersionCodes: Map<String, Lon
 
 fun resolvedNotifications(notifiedVersionCodes: Map<String, Long>, installedVersionCode: (String) -> Long?): Set<String> =
     notifiedVersionCodes.filter { (pkg, notified) -> installedVersionCode(pkg)?.let { it >= notified } ?: true }.keys
+
+// Android only skips the confirmation prompt for apps whose installer of record is us.
+fun autoUpdatable(
+    catalog: List<CatalogItem>,
+    self: String,
+    installedVersion: (String) -> String?,
+    installerOf: (String) -> String?,
+): List<CatalogItem> = availableUpdates(catalog, installedVersion).filter { installerOf(it.packageName) == self }

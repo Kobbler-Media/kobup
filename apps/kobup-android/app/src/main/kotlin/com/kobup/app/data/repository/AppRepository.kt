@@ -130,6 +130,17 @@ class AppRepository(private val context: Context) {
         }
     }
 
+    fun getInstallerPackage(packageName: String): String? = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.packageManager.getInstallSourceInfo(packageName).installingPackageName
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getInstallerPackageName(packageName)
+        }
+    } catch (_: PackageManager.NameNotFoundException) {
+        null
+    }
+
     fun getLaunchIntent(packageName: String): Intent? =
         context.packageManager.getLaunchIntentForPackage(packageName)
 

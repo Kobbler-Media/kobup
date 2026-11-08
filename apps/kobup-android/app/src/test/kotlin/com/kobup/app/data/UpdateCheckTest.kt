@@ -60,4 +60,15 @@ class UpdateCheckTest {
             assertEquals(c.toString(), if (c.resolved) setOf("a") else emptySet<String>(), resolved)
         }
     }
+
+    @Test
+    fun autoUpdatableOnlyIncludesUpdatesKobupInstalled() {
+        val installed = mapOf("a" to "1.0", "b" to "1.0", "c" to "1.0", "d" to "2.0")
+        val installers = mapOf("a" to "com.kobup.app", "b" to "com.android.shell", "d" to "com.kobup.app")
+        val catalog = listOf(item("a", "1.1"), item("b", "1.1"), item("c", "1.1"), item("d", "2.0"), item("e", "1.0"))
+
+        val updates = autoUpdatable(catalog, "com.kobup.app", { installed[it] }, { installers[it] })
+
+        assertEquals(listOf("a"), updates.map { it.packageName })
+    }
 }

@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
@@ -20,13 +23,18 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.kobup.app.data.local.PrefsManager
 import com.kobup.app.data.model.CatalogItem
+import com.kobup.app.data.repository.AppRepository
 import com.kobup.app.ui.screens.AppDetailScreen
 import com.kobup.app.ui.screens.CatalogScreen
 import com.kobup.app.ui.screens.SettingsScreen
 import com.kobup.app.ui.screens.SetupScreen
 import com.kobup.app.ui.theme.KobupTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+
+// The Kobup SDK's OPEN_APP intent names the app whose page it wants, forwarded by OpenAppActivity.
+private const val EXTRA_OPEN_PACKAGE = "package_name"
 
 class MainActivity : ComponentActivity() {
 
@@ -37,14 +45,14 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             KobupTheme {
-                KobupNavHost()
+                KobupNavHost(openPackage = intent.getStringExtra(EXTRA_OPEN_PACKAGE))
             }
         }
     }
 }
 
 @Composable
-private fun KobupNavHost() {
+private fun KobupNavHost(openPackage: String?) {
     val context = LocalContext.current
     val prefs = remember { PrefsManager(context) }
     val isSetupDone by prefs.isSetupDone.collectAsState(initial = null)
@@ -69,6 +77,18 @@ private fun KobupNavHost() {
         }
     }
 
+    fun openDetail(item: CatalogItem) {
+        navController.navigate("detail/${android.net.Uri.encode(json.encodeToString(item))}")
+    }
+
+    var openPackageHandled by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(setupDone, openPackage) {
+        if (!setupDone || openPackage == null || openPackageHandled) return@LaunchedEffect
+        val item = AppRepository.catalog.first { it.isNotEmpty() }.find { it.packageName == openPackage }
+        openPackageHandled = true
+        if (item != null) openDetail(item)
+    }
+
     NavHost(navController = navController, startDestination = startDest) {
         composable("setup") {
             SetupScreen(
@@ -84,10 +104,7 @@ private fun KobupNavHost() {
         composable("catalog") {
             CatalogScreen(
                 isTv = isTv,
-                onAppClick = { item ->
-                    val encoded = android.net.Uri.encode(json.encodeToString(item))
-                    navController.navigate("detail/$encoded")
-                },
+                onAppClick = ::openDetail,
                 onSettingsClick = {
                     navController.navigate("settings")
                 },

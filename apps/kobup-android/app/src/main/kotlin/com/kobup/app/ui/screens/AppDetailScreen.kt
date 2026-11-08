@@ -71,6 +71,15 @@ enum class InstallState {
     ERROR,
 }
 
+// The screen can sit in the back stack across a release, so a finished outcome only
+// stands while it still refers to the latest version.
+fun visibleInstallState(state: InstallState, attemptedVersionCode: Long?, latestVersionCode: Long?): InstallState =
+    when (state) {
+        InstallState.INSTALLED, InstallState.ERROR ->
+            if (attemptedVersionCode == latestVersionCode) state else InstallState.IDLE
+        else -> state
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailScreen(
@@ -106,6 +115,11 @@ fun AppDetailScreen(
     var installState by remember { mutableStateOf(InstallState.IDLE) }
     var progress by remember { mutableFloatStateOf(0f) }
     var errorMessage by remember { mutableStateOf("") }
+    var attemptedVersionCode by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(item.latestVersion?.versionCode) {
+        installState = visibleInstallState(installState, attemptedVersionCode, item.latestVersion?.versionCode)
+    }
 
     // Observe install results from the PackageInstaller broadcast
     val installResult by InstallResultReceiver.lastResult.collectAsState()
@@ -158,24 +172,22 @@ fun AppDetailScreen(
 
     fun startInstall() {
         val info = artifactInfo ?: return
+        attemptedVersionCode = info.versionCode
         scope.launch {
             installState = InstallState.DOWNLOADING
             progress = 0f
             try {
                 installService.downloadAndInstall(
                     repo = repo,
+                    packageName = item.packageName,
+                    fromVersionCode = installedVersionCode,
+                    toVersionCode = info.versionCode,
                     artifactId = info.artifactId,
                     expectedSha256 = info.sha256,
                     dexMetadata = info.dexMetadata,
                     onProgress = { progress = it },
                 )
                 installState = InstallState.SUCCESS
-                repo.reportInstallEvent(
-                    packageName = item.packageName,
-                    fromVersionCode = installedVersionCode,
-                    toVersionCode = info.versionCode,
-                    status = "success",
-                )
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Install failed"
                 installState = InstallState.ERROR

@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -45,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kobup.app.data.local.PrefsManager
+import com.kobup.app.service.AutoUpdateWorker
 import com.kobup.app.ui.components.requestFocusSafely
 import com.kobup.app.ui.components.tvFocusable
 import kotlinx.coroutines.launch
@@ -65,6 +67,7 @@ fun SettingsScreen(
     val serverUrl by prefs.serverUrl.collectAsState(initial = "")
     val deviceId by prefs.deviceId.collectAsState(initial = "")
     val channel by prefs.channel.collectAsState(initial = PrefsManager.DEFAULT_CHANNEL)
+    val autoUpdate by prefs.autoUpdate.collectAsState(initial = true)
 
     var showChannelDialog by remember { mutableStateOf(false) }
     var channelInput by remember { mutableStateOf("") }
@@ -143,6 +146,45 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(24.dp))
+
+            if (AutoUpdateWorker.supported) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val next = !autoUpdate
+                            scope.launch {
+                                prefs.saveAutoUpdate(next)
+                                if (!next) AutoUpdateWorker.cancel(context)
+                            }
+                        }
+                        .then(if (isTv) Modifier.tvFocusable() else Modifier),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(if (isTv) 20.dp else 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Auto-install updates",
+                                style = if (isTv) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Updates apps installed through kobup while the device is idle on Wi-Fi",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = autoUpdate, onCheckedChange = null)
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+            }
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(if (isTv) 20.dp else 16.dp)) {
