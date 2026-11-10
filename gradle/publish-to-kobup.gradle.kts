@@ -5,6 +5,10 @@
 // version.properties (versionCode, versionName) in the root project, and KOBUP_TOKEN in
 // the environment or the root project's .env.
 //
+// With a "github" object in .kobup.json ({"repo": "owner/name", "user": "<gh account>",
+// "tagPrefix": "v"}) the same APKs also go up as a GitHub release, tagged at the commit they
+// were built from, via the `gh` CLI. GH_TOKEN wins over `gh auth token -u <user>`.
+//
 // Usage: ./gradlew :app:publishToKobup
 //
 // Kotlin rather than Groovy: Gradle's Groovy cannot compile a script on a newer JDK than
@@ -45,6 +49,22 @@ tasks.register("publishToKobup") {
         val channel = config["channel"] as? String ?: "stable"
 
         val gitHash = run("git", "rev-parse", "--short=7", "HEAD").second
+        val gitSha = run("git", "rev-parse", "HEAD").second
+
+        @Suppress("UNCHECKED_CAST")
+        val github = config["github"] as? Map<String, Any?>
+        val githubRepo = github?.get("repo") as? String
+        val githubToken = github?.let {
+            // The release tags HEAD on the remote, so a commit that only exists here would
+            // publish to kobup and then fail on GitHub.
+            if (run("git", "branch", "-r", "--contains", "HEAD").second.isBlank()) {
+                throw GradleException("HEAD $gitHash is not on any remote branch — push before publishing a GitHub release")
+            }
+            val user = it["user"] as? String
+            System.getenv("GH_TOKEN")?.takeIf { t -> t.isNotBlank() }
+                ?: run(*(listOf("gh", "auth", "token") + (user?.let { u -> listOf("-u", u) } ?: emptyList())).toTypedArray())
+                    .let { (exit, out) -> if (exit == 0 && out.isNotBlank()) out else throw GradleException("gh auth token failed:\n$out") }
+        }
 
         val propsFile = File(publishRootDir, "version.properties")
         if (!propsFile.exists()) throw GradleException("Missing version.properties in ${publishRootDir.absolutePath}")
@@ -118,5 +138,32 @@ tasks.register("publishToKobup") {
 
         run("curl", "-s", "-X", "POST", "$server/api/v1/ci/projects/$slug/push-refresh", "-H", "Authorization: Bearer $token")
         logger.lifecycle("Push refresh sent to devices.")
+
+        if (githubRepo != null && githubToken != null) {
+            val version = newName.substringBefore("+")
+            val tag = "${github["tagPrefix"] as? String ?: "v"}$version"
+            val assetDir = File(publishApkDir, "github").apply { deleteRecursively(); mkdirs() }
+            val assets = apks.map { apk ->
+                val variant = apk.name.removeSuffix("-release.apk").substringAfter("-", "")
+                val name = if (variant.isEmpty()) "$slug-$version.apk" else "$slug-$version-$variant.apk"
+                apk.copyTo(File(assetDir, name)).absolutePath
+            }
+            logger.lifecycle("Creating GitHub release $tag on $githubRepo...")
+            val gh = ProcessBuilder(
+                listOf(
+                    "gh", "release", "create", tag, "-R", githubRepo,
+                    "--target", gitSha, "--title", "$projectName $newName", "--generate-notes",
+                ) + assets,
+            ).directory(publishRootDir).redirectErrorStream(true)
+            gh.environment()["GH_TOKEN"] = githubToken
+            val proc = gh.start()
+            val ghOutput = proc.inputStream.bufferedReader().readText().trim()
+            // Kobup already has this release and version.properties stays bumped, so only the
+            // GitHub half needs redoing.
+            if (proc.waitFor() != 0) {
+                throw GradleException("Published to kobup, but the GitHub release failed. Retry with:\n  gh release create $tag -R $githubRepo --target $gitSha --generate-notes ${assets.joinToString(" ")}\n$ghOutput")
+            }
+            logger.lifecycle("GitHub release: $ghOutput")
+        }
     }
 }

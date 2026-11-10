@@ -1,19 +1,19 @@
 # Kobup — minimal example stack (API + web UI). SQLite and uploaded APKs live
 # in the `kobup_data` named volume, so there is nothing to set up on the host.
 #
-# This file is an EXAMPLE, not a production deployment. It builds both images
-# from this checkout, so you need no registry access.
+# This file is an EXAMPLE, not a production deployment. The images are
+# published to ghcr.io; `--build` instead builds both from this checkout.
 #
 # Bring it up:
 #   cp .env.example .env     # leave ADMIN_BOOTSTRAP_PASSWORD blank to auto-generate one on first boot
-#   docker compose up -d --build
+#   docker compose pull && docker compose up -d
 #
 # Web UI: http://localhost:${KOBUP_WEB_PORT:-5175}
 # API:    http://localhost:${KOBUP_API_PORT:-8080}
 
 services:
   api:
-    image: kobup:local
+    image: ${KOBUP_REGISTRY:-ghcr.io/kobbler-media}/kobup:latest
     build:
       context: .
       dockerfile: docker/api.Dockerfile
@@ -54,7 +54,7 @@ services:
       retries: 3
 
   web:
-    image: kobup-web:local
+    image: ${KOBUP_REGISTRY:-ghcr.io/kobbler-media}/kobup-web:latest
     build:
       context: ./apps/kobup-web
       target: prod

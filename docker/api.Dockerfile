@@ -16,6 +16,7 @@ ENV SQLX_OFFLINE=true
 RUN cargo build --release -p kobup-service
 
 FROM debian:trixie-slim AS prod
+LABEL org.opencontainers.image.source="https://github.com/Kobbler-Media/kobup"
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/target/release/kobup-service /app/kobup-service

@@ -25,7 +25,9 @@ Licensed under [AGPL-3.0](LICENSE). Contributions welcome — see [CONTRIBUTING.
 - For local (non-Docker) development: a recent stable Rust toolchain and Node.js 24+.
 - For the Android apps: Android Studio, or a JDK plus the Android SDK.
 
-There are no sibling-checkout or private-registry requirements; the whole stack builds from this repo.
+Images are published to `ghcr.io/kobbler-media` (linux/amd64) on every push to `main`: `:latest`, plus `:sha-<commit>` to pin one. There are no sibling-checkout requirements to build them yourself either; `docker compose up -d --build` builds the whole stack from this repo.
+
+The updater app's APK is attached to this repo's [GitHub Releases](https://github.com/Kobbler-Media/kobup/releases) (`android-v*` tags).
 
 ## Quickstart
 
@@ -33,7 +35,8 @@ There are no sibling-checkout or private-registry requirements; the whole stack 
 git clone https://github.com/Kobbler-Media/kobup.git
 cd kobup
 cp .env.example .env        # edit it — at minimum set ADMIN_BOOTSTRAP_PASSWORD
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 - Web UI: <http://localhost:5175>
@@ -82,7 +85,7 @@ docker compose -f docker-compose.dev.yml up --build
 Open `apps/kobup-android` in Android Studio. Two things are **not** in the repo and you must supply them yourself:
 
 - **`app/google-services.json`** — Firebase config for push notifications. Copy `app/google-services.json.example` and fill it in from your own Firebase project (Firebase console → Project settings → Your apps → Android app → *Download google-services.json*). The build does **not** fail without it: `app/build.gradle.kts` applies the Google Services plugin only when the file exists, so the app compiles and runs with FCM push simply disabled.
-- **`.kobup.json`** — deployment target for `./gradlew :app:publishToKobup`. Copy `.kobup.json.example` to `.kobup.json` in `apps/kobup-android/` and set `server` to your Kobup instance. This file is read from a fixed path (`<project root>/.kobup.json`) and only by the `publishToKobup` task, so a plain build or `assembleDebug` does not need it. Publishing also needs `KOBUP_TOKEN` (a CI token created in the web admin) in the environment or in `apps/kobup-android/.env`, and a release keystore (see below).
+- **`.kobup.json`** — deployment target for `./gradlew :app:publishToKobup`. Copy `.kobup.json.example` to `.kobup.json` in `apps/kobup-android/` and set `server` to your Kobup instance. This file is read from a fixed path (`<project root>/.kobup.json`) and only by the `publishToKobup` task, so a plain build or `assembleDebug` does not need it. Publishing also needs `KOBUP_TOKEN` (a CI token created in the web admin) in the environment or in `apps/kobup-android/.env`, and a release keystore (see below). An optional `"github": {"repo": "owner/name", "user": "<gh account>", "tagPrefix": "v"}` entry also attaches the signed APKs to a GitHub release of that repo via the `gh` CLI (kobapp uses the same helper and option).
 
 Both files are gitignored.
 
