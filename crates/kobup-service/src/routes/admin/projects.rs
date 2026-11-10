@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::routes::AuthUser;
+use crate::routes::{AuthUser, SessionUser};
 use crate::{AppState, repositories};
 
 #[derive(Serialize)]
@@ -83,7 +83,7 @@ impl From<repositories::channels::Channel> for ChannelResponse {
     }
 }
 
-pub async fn list(State(state): State<AppState>, _auth: AuthUser) -> impl IntoResponse {
+pub async fn list(State(state): State<AppState>, _auth: SessionUser) -> impl IntoResponse {
     match repositories::projects::list(&state.pool).await {
         Ok(projects) => {
             let resp: Vec<ProjectResponse> = projects.into_iter().map(Into::into).collect();
@@ -174,7 +174,7 @@ pub async fn create(
 
 pub async fn get(
     State(state): State<AppState>,
-    _auth: AuthUser,
+    _auth: SessionUser,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let project = match repositories::projects::get_by_id(&state.pool, &id).await {

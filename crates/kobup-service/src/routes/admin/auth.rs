@@ -66,9 +66,14 @@ pub async fn login(
         .format("%Y-%m-%d %H:%M:%S")
         .to_string();
 
-    if let Err(e) =
-        repositories::auth_tokens::create(&state.pool, &user_id, &token, "admin", Some(&expires_at))
-            .await
+    if let Err(e) = repositories::auth_tokens::create(
+        &state.pool,
+        &user_id,
+        &token,
+        "session",
+        Some(&expires_at),
+    )
+    .await
     {
         tracing::error!(error = %e, "failed to insert auth token during login");
         return (StatusCode::INTERNAL_SERVER_ERROR, "login failed").into_response();
@@ -98,7 +103,10 @@ pub async fn login(
         .into_response()
 }
 
-pub async fn me(State(state): State<AppState>, auth: crate::routes::AuthUser) -> impl IntoResponse {
+pub async fn me(
+    State(state): State<AppState>,
+    auth: crate::routes::SessionUser,
+) -> impl IntoResponse {
     match repositories::users::get_by_id(&state.pool, &auth.user_id).await {
         Ok(Some((id, email, role))) => AxumJson(MeResponse {
             user_id: id,
@@ -136,7 +144,7 @@ pub struct ChangeEmailRequest {
 
 pub async fn change_email(
     State(state): State<AppState>,
-    auth: crate::routes::AuthUser,
+    auth: crate::routes::SessionUser,
     Json(payload): Json<ChangeEmailRequest>,
 ) -> impl IntoResponse {
     let email = payload.email.trim();
@@ -163,7 +171,7 @@ pub struct ChangePasswordRequest {
 
 pub async fn change_password(
     State(state): State<AppState>,
-    auth: crate::routes::AuthUser,
+    auth: crate::routes::SessionUser,
     Json(payload): Json<ChangePasswordRequest>,
 ) -> impl IntoResponse {
     if payload.new_password.len() < 8 {

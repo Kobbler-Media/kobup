@@ -4,6 +4,7 @@
   import { page } from '$app/state';
   import { me, login, logout as apiLogout } from '#lib/api/client.js';
   import { ApiError } from '#lib/api/client.js';
+  import { session } from '#lib/session.svelte.js';
   import '../app.css';
 
   let { children } = $props();
@@ -27,10 +28,11 @@
   let loginError = $state('');
   let loginLoading = $state(false);
 
-  const navLinks = [
+  const allNavLinks = [
     {
       href: '/projects',
       label: 'Projects',
+      viewer: true,
       icon: 'M21 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2m18 0v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7m18 0H3m4-2v4m10-4v4'
     },
     {
@@ -51,9 +53,14 @@
     {
       href: '/pin-login',
       label: 'PIN Login',
+      viewer: true,
       icon: 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z'
     }
   ];
+
+  let navLinks = $derived(
+    session.role === 'admin' ? allNavLinks : allNavLinks.filter((l) => l.viewer)
+  );
 
   function toggleTheme() {
     theme = theme === 'dark' ? 'light' : 'dark';
@@ -73,6 +80,7 @@
       const resp = await me();
       authed = true;
       userEmail = resp.email;
+      session.role = resp.role;
       loginEmail = '';
       loginPassword = '';
       if (page.url.pathname === '/' || page.url.pathname === '/login') {
@@ -93,6 +101,7 @@
     }
     authed = false;
     userEmail = '';
+    session.role = null;
     goto('/login');
   }
 
@@ -108,6 +117,7 @@
       const resp = await me();
       authed = true;
       userEmail = resp.email;
+      session.role = resp.role;
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         if (
@@ -201,7 +211,7 @@
                 <span class="brand-mark">K</span>
                 <span class="brand-text">Kobup</span>
               </div>
-              <p class="login-subtitle">Sign in to your admin account</p>
+              <p class="login-subtitle">Sign in to your account</p>
 
               {#if loginError}
                 <p class="login-error">{loginError}</p>

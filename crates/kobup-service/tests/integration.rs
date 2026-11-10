@@ -2207,3 +2207,233 @@ async fn latest_file_name_no_dm(client: &Client, base_url: &str, slug: &str, abi
         .trim_end_matches('"')
         .to_string()
 }
+
+// ---------------------------------------------------------------------------
+// Roles: viewers can browse and authorise their own devices, nothing else
+// ---------------------------------------------------------------------------
+
+async fn login_as(client: &Client, base_url: &str, email: &str, password: &str) -> String {
+    let resp = client
+        .post(format!("{base_url}/api/v1/admin/login"))
+        .json(&json!({"email": email, "password": password}))
+        .send()
+        .await
+        .expect("login");
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp.json().await.unwrap();
+    body["token"].as_str().unwrap().to_string()
+}
+
+async fn create_viewer(client: &Client, base_url: &str, admin_token: &str) -> String {
+    let resp = client
+        .post(format!("{base_url}/api/v1/admin/users"))
+        .bearer_auth(admin_token)
+        .json(&json!({"email": "viewer@test.local", "password": "viewer-pass-1", "role": "viewer"}))
+        .send()
+        .await
+        .expect("create viewer");
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    login_as(client, base_url, "viewer@test.local", "viewer-pass-1").await
+}
+
+#[tokio::test]
+async fn test_viewer_can_read_but_not_write() {
+    let (client, base_url, admin) = setup().await;
+    let project = create_project(&client, &base_url, &admin, "viewer-app", "Viewer App").await;
+    let project_id = project["id"].as_str().unwrap();
+    let viewer = create_viewer(&client, &base_url, &admin).await;
+
+    let resp = client
+        .get(format!("{base_url}/api/v1/admin/me"))
+        .bearer_auth(&viewer)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.json::<Value>().await.unwrap()["role"], "viewer");
+
+    for path in [
+        "/api/v1/admin/projects".to_string(),
+        format!("/api/v1/admin/projects/{project_id}"),
+        format!("/api/v1/admin/projects/{project_id}/releases"),
+    ] {
+        let resp = client
+            .get(format!("{base_url}{path}"))
+            .bearer_auth(&viewer)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK, "GET {path}");
+    }
+
+    let forbidden: Vec<(reqwest::Method, String, Value)> = vec![
+        (
+            reqwest::Method::POST,
+            "/api/v1/admin/projects".into(),
+            json!({"slug": "x", "name": "x"}),
+        ),
+        (
+            reqwest::Method::PATCH,
+            format!("/api/v1/admin/projects/{project_id}"),
+            json!({"name": "x"}),
+        ),
+        (
+            reqwest::Method::DELETE,
+            format!("/api/v1/admin/projects/{project_id}"),
+            json!({}),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/admin/projects/{project_id}/channels"),
+            json!({"name": "beta"}),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/admin/projects/{project_id}/ingest/github"),
+            json!({}),
+        ),
+        (
+            reqwest::Method::POST,
+            "/api/v1/admin/releases/nope/publish".into(),
+            json!({}),
+        ),
+        (
+            reqwest::Method::DELETE,
+            "/api/v1/admin/releases/nope".into(),
+            json!({}),
+        ),
+        (
+            reqwest::Method::GET,
+            "/api/v1/admin/devices".into(),
+            json!({}),
+        ),
+        (
+            reqwest::Method::GET,
+            "/api/v1/admin/tokens".into(),
+            json!({}),
+        ),
+        (
+            reqwest::Method::POST,
+            "/api/v1/admin/tokens".into(),
+            json!({"name": "x"}),
+        ),
+        (
+            reqwest::Method::GET,
+            "/api/v1/admin/users".into(),
+            json!({}),
+        ),
+        (
+            reqwest::Method::POST,
+            "/api/v1/admin/users".into(),
+            json!({"email": "a@b.c", "password": "password1", "role": "admin"}),
+        ),
+        (
+            reqwest::Method::PUT,
+            "/api/v1/admin/users/nope/password".into(),
+            json!({"password": "password1"}),
+        ),
+        (
+            reqwest::Method::DELETE,
+            "/api/v1/admin/users/nope".into(),
+            json!({}),
+        ),
+        (
+            reqwest::Method::POST,
+            "/api/v1/admin/pin-login/cli".into(),
+            json!({"pin": "ABCD12", "api_url": "http://x"}),
+        ),
+        (
+            reqwest::Method::POST,
+            "/api/v1/admin/push-refresh".into(),
+            json!({}),
+        ),
+    ];
+    for (method, path, body) in forbidden {
+        let resp = client
+            .request(method.clone(), format!("{base_url}{path}"))
+            .bearer_auth(&viewer)
+            .json(&body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN, "{method} {path}");
+    }
+
+    let resp = client
+        .post(format!(
+            "{base_url}/api/v1/admin/projects/{project_id}/upload"
+        ))
+        .bearer_auth(&viewer)
+        .multipart(reqwest::multipart::Form::new().text("channel", "stable"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN, "upload");
+}
+
+#[tokio::test]
+async fn test_viewer_can_authorise_their_own_device() {
+    let received: Arc<std::sync::Mutex<Option<Value>>> = Default::default();
+    let sink = received.clone();
+    let relay = axum::Router::new().route(
+        "/pin/kobup/{pin}",
+        axum::routing::put(move |axum::Json(body): axum::Json<Value>| async move {
+            *sink.lock().unwrap() = Some(body);
+            StatusCode::ACCEPTED
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind relay");
+    let relay_url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, relay).await.ok() });
+
+    let (client, base_url, admin, pool, _root) =
+        setup_with(|c| c.pin_service_url = relay_url).await;
+    let viewer = create_viewer(&client, &base_url, &admin).await;
+
+    let resp = client
+        .post(format!("{base_url}/api/v1/admin/pin-login/device"))
+        .bearer_auth(&viewer)
+        .json(&json!({"pin": "abcd12", "api_url": "https://updates.example"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    let body = received.lock().unwrap().take().expect("relay was called");
+    let device_token = body["token"].as_str().unwrap();
+    let owner: String = sqlx::query_scalar(
+        "SELECT u.email FROM auth_tokens t JOIN users u ON u.id = t.user_id WHERE t.scope = 'device'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(owner, "viewer@test.local");
+
+    let resp = client
+        .get(format!("{base_url}/api/v1/admin/projects"))
+        .bearer_auth(device_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        StatusCode::UNAUTHORIZED,
+        "device tokens never open a web session"
+    );
+}
+
+#[tokio::test]
+async fn test_create_user_rejects_unknown_role() {
+    let (client, base_url, admin) = setup().await;
+
+    let resp = client
+        .post(format!("{base_url}/api/v1/admin/users"))
+        .bearer_auth(&admin)
+        .json(&json!({"email": "x@test.local", "password": "password1", "role": "superuser"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}

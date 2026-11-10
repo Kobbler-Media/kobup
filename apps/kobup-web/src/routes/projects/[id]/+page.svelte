@@ -16,6 +16,7 @@
   } from '#lib/api/client.js';
   import { goto } from '$app/navigation';
   import type { ProjectDetail, Release } from '#lib/types.js';
+  import { isAdmin } from '#lib/session.svelte.js';
 
   const projectId = $derived(page.params.id as string);
 
@@ -232,21 +233,25 @@
         <h1>{project.name}</h1>
         <span class="project-slug">{project.slug}</span>
       </div>
-      <label class="icon-upload-label">
-        {uploadingIcon ? 'Uploading...' : project.iconUrl ? 'Change icon' : 'Add icon'}
-        <input
-          type="file"
-          accept="image/png,image/jpeg"
-          onchange={handleIconUpload}
-          hidden
-          disabled={uploadingIcon}
-        />
-      </label>
+      {#if isAdmin()}
+        <label class="icon-upload-label">
+          {uploadingIcon ? 'Uploading...' : project.iconUrl ? 'Change icon' : 'Add icon'}
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            onchange={handleIconUpload}
+            hidden
+            disabled={uploadingIcon}
+          />
+        </label>
+      {/if}
     </div>
-    <div class="actions">
-      <button class="alt compact" onclick={handlePushRefresh}>Push Refresh</button>
-      <button class="danger compact" onclick={handleDelete}>Delete Project</button>
-    </div>
+    {#if isAdmin()}
+      <div class="actions">
+        <button class="alt compact" onclick={handlePushRefresh}>Push Refresh</button>
+        <button class="danger compact" onclick={handleDelete}>Delete Project</button>
+      </div>
+    {/if}
   </div>
 
   {#if error}
@@ -266,7 +271,7 @@
             {channel.name}
             {#if channel.isDefault}
               <span class="channel-default-tag">default</span>
-            {:else}
+            {:else if isAdmin()}
               <button
                 class="channel-remove"
                 onclick={() => handleDeleteChannel(channel.id)}
@@ -279,53 +284,57 @@
     {:else}
       <p class="text-muted text-sm">No channels.</p>
     {/if}
-    <div class="channel-add">
-      <input type="text" bind:value={newChannelName} placeholder="Channel name" />
-      <button class="alt compact" onclick={handleAddChannel} disabled={addingChannel}>Add</button>
-    </div>
+    {#if isAdmin()}
+      <div class="channel-add">
+        <input type="text" bind:value={newChannelName} placeholder="Channel name" />
+        <button class="alt compact" onclick={handleAddChannel} disabled={addingChannel}>Add</button>
+      </div>
+    {/if}
   </section>
 
-  <!-- Upload APK -->
-  <section>
-    <h2>Upload APK</h2>
-    <form onsubmit={handleUpload} class="card upload-form">
-      <div class="form-group">
-        <label for="apkFile">
-          APK Files
-          <input id="apkFile" type="file" accept=".apk" multiple onchange={handleFileSelect} />
-        </label>
-        <p class="text-muted text-sm" style="margin-top: 4px">
-          Select every ABI split of one build (plus a universal APK) to publish them together; each
-          device downloads the smallest APK it can run.
-        </p>
-      </div>
-      <div class="form-group">
-        <label for="uploadChannel">
-          Channel
-          <select id="uploadChannel" bind:value={uploadChannel}>
-            {#each project.channels as channel (channel.id)}
-              <option value={channel.name}>{channel.name}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
-      <div class="form-group">
-        <label for="uploadNotes">
-          Release Notes
-          <textarea id="uploadNotes" bind:value={uploadNotes} placeholder="Optional"></textarea>
-        </label>
-      </div>
-      <div class="form-group checkbox-group">
-        <label class="checkbox-label">
-          <input id="uploadPublish" type="checkbox" bind:checked={uploadPublish} />
-          Publish immediately
-        </label>
-      </div>
-      <button type="submit" disabled={uploading || uploadFiles.length === 0}>
-        {uploading ? 'Uploading...' : 'Upload'}
-      </button>
-    </form>
-  </section>
+  {#if isAdmin()}
+    <!-- Upload APK -->
+    <section>
+      <h2>Upload APK</h2>
+      <form onsubmit={handleUpload} class="card upload-form">
+        <div class="form-group">
+          <label for="apkFile">
+            APK Files
+            <input id="apkFile" type="file" accept=".apk" multiple onchange={handleFileSelect} />
+          </label>
+          <p class="text-muted text-sm" style="margin-top: 4px">
+            Select every ABI split of one build (plus a universal APK) to publish them together;
+            each device downloads the smallest APK it can run.
+          </p>
+        </div>
+        <div class="form-group">
+          <label for="uploadChannel">
+            Channel
+            <select id="uploadChannel" bind:value={uploadChannel}>
+              {#each project.channels as channel (channel.id)}
+                <option value={channel.name}>{channel.name}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="uploadNotes">
+            Release Notes
+            <textarea id="uploadNotes" bind:value={uploadNotes} placeholder="Optional"></textarea>
+          </label>
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input id="uploadPublish" type="checkbox" bind:checked={uploadPublish} />
+            Publish immediately
+          </label>
+        </div>
+        <button type="submit" disabled={uploading || uploadFiles.length === 0}>
+          {uploading ? 'Uploading...' : 'Upload'}
+        </button>
+      </form>
+    </section>
+  {/if}
 
   <!-- Releases -->
   <section>
@@ -342,7 +351,7 @@
             <th>APKs</th>
             <th>Status</th>
             <th>Created</th>
-            <th>Actions</th>
+            {#if isAdmin()}<th>Actions</th>{/if}
           </tr>
         </thead>
         <tbody>
@@ -369,18 +378,20 @@
                 {/if}
               </td>
               <td class="text-muted">{new Date(release.createdAt).toLocaleDateString()}</td>
-              <td>
-                <div class="actions">
-                  {#if !release.publishedAt}
-                    <button class="compact" onclick={() => handlePublish(release.id)}
-                      >Publish</button
+              {#if isAdmin()}
+                <td>
+                  <div class="actions">
+                    {#if !release.publishedAt}
+                      <button class="compact" onclick={() => handlePublish(release.id)}
+                        >Publish</button
+                      >
+                    {/if}
+                    <button class="danger compact" onclick={() => handleDeleteRelease(release.id)}
+                      >Delete</button
                     >
-                  {/if}
-                  <button class="danger compact" onclick={() => handleDeleteRelease(release.id)}
-                    >Delete</button
-                  >
-                </div>
-              </td>
+                  </div>
+                </td>
+              {/if}
             </tr>
           {/each}
         </tbody>
@@ -388,50 +399,52 @@
     {/if}
   </section>
 
-  <!-- Project Settings -->
-  <section>
-    <h2>Project Settings</h2>
-    <div class="card settings-form">
-      <div class="form-group">
-        <label for="editName">
-          Name
-          <input id="editName" type="text" bind:value={editName} />
-        </label>
+  {#if isAdmin()}
+    <!-- Project Settings -->
+    <section>
+      <h2>Project Settings</h2>
+      <div class="card settings-form">
+        <div class="form-group">
+          <label for="editName">
+            Name
+            <input id="editName" type="text" bind:value={editName} />
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="editPackageName">
+            Package Name
+            <input id="editPackageName" type="text" bind:value={editPackageName} />
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="editDescription">
+            Description
+            <textarea id="editDescription" bind:value={editDescription}></textarea>
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="editMaxReleases">
+            Max releases per channel
+            <input
+              id="editMaxReleases"
+              type="number"
+              min="0"
+              step="1"
+              bind:value={editMaxReleases}
+              placeholder="Leave empty to use global default"
+            />
+          </label>
+          <p class="text-muted text-sm" style="margin-top: 4px">
+            Older releases beyond this count are pruned hourly. Empty uses the global default.
+          </p>
+        </div>
+        <p class="text-muted text-sm" style="margin-bottom: 12px">Slug: {project.slug}</p>
+        <button onclick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
       </div>
-      <div class="form-group">
-        <label for="editPackageName">
-          Package Name
-          <input id="editPackageName" type="text" bind:value={editPackageName} />
-        </label>
-      </div>
-      <div class="form-group">
-        <label for="editDescription">
-          Description
-          <textarea id="editDescription" bind:value={editDescription}></textarea>
-        </label>
-      </div>
-      <div class="form-group">
-        <label for="editMaxReleases">
-          Max releases per channel
-          <input
-            id="editMaxReleases"
-            type="number"
-            min="0"
-            step="1"
-            bind:value={editMaxReleases}
-            placeholder="Leave empty to use global default"
-          />
-        </label>
-        <p class="text-muted text-sm" style="margin-top: 4px">
-          Older releases beyond this count are pruned hourly. Empty uses the global default.
-        </p>
-      </div>
-      <p class="text-muted text-sm" style="margin-bottom: 12px">Slug: {project.slug}</p>
-      <button onclick={handleSave} disabled={saving}>
-        {saving ? 'Saving...' : 'Save Changes'}
-      </button>
-    </div>
-  </section>
+    </section>
+  {/if}
 {/if}
 
 <style>

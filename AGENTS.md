@@ -27,7 +27,7 @@ Machine-specific notes — your paths, your deployment, your local tooling — b
 - Use `sqlx::query!` / `query_as!` / `query_scalar!` macros (compile-time checked)
 - After changing any SQL, run `make sqlx-prepare` to regenerate the `.sqlx/` cache
 - Dynamic SQL (catalog search, project update) uses runtime `sqlx::query()` — these are the exceptions
-- Auth extractors in `routes/mod.rs`: `AuthUser` (admin), `DeviceAuth` (device), `CiAuth` (CI), `AnyAuth`
+- Auth extractors in `routes/mod.rs`: `SessionUser` (any web user), `AuthUser` (admin role), `DeviceAuth` (device), `CiAuth` (CI), `AnyAuth`
 - Tokens SHA-256 hashed before storage, never stored plaintext
 - Session cookie: `kobup_session` (HttpOnly, SameSite=Lax)
 - PIN login is delegated to an external PIN broker (default `https://pin.biboop.com`, override with `KOBUP_PIN_SERVICE_URL` / `-PpinServiceUrl`), namespace `kobup`
@@ -39,7 +39,8 @@ Machine-specific notes — your paths, your deployment, your local tooling — b
 
 ## Auth scopes
 
-- `admin` — web password login, 30-day expiry, full access
+- `session` — web password login, 30-day expiry; what it can do depends on the user's role:
+  `admin` (everything) or `viewer` (browse projects/releases, PIN-authorise their own devices)
 - `device` — PIN flow, 365-day expiry, read-only (catalog/download/register)
 - `ci` — PIN flow or admin-created API token, 90-day expiry, write (upload/publish/push-refresh)
 

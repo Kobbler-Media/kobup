@@ -8,7 +8,7 @@ use serde::Serialize;
 
 use crate::AppState;
 use crate::repositories::{artifacts, releases};
-use crate::routes::AuthUser;
+use crate::routes::{AuthUser, SessionUser};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,7 +63,7 @@ impl From<artifacts::Artifact> for ArtifactResponse {
 
 pub async fn list(
     State(state): State<AppState>,
-    _auth: AuthUser,
+    _auth: SessionUser,
     Path(project_id): Path<String>,
 ) -> impl IntoResponse {
     let release_list = match releases::list_by_project(&state.pool, &project_id).await {

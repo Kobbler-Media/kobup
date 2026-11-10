@@ -9,7 +9,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::error;
 
-use crate::routes::AuthUser;
+use crate::routes::{AuthUser, SessionUser};
 use crate::{AppState, http, repositories};
 
 const PIN_NAMESPACE: &str = "kobup";
@@ -101,7 +101,7 @@ async fn do_pin_login(
 
 pub async fn pin_login_device(
     State(state): State<AppState>,
-    auth: AuthUser,
+    auth: SessionUser,
     Json(payload): Json<PinLoginRequest>,
 ) -> Response {
     do_pin_login(state, auth.user_id, payload, "device", 365).await

@@ -41,6 +41,10 @@ pub async fn create(
             .into_response();
     }
 
+    if auth::Role::parse(&payload.role).is_none() {
+        return (StatusCode::BAD_REQUEST, "role must be admin or viewer").into_response();
+    }
+
     let password_hash = match auth::hash_password(&payload.password) {
         Ok(h) => h,
         Err(e) => {

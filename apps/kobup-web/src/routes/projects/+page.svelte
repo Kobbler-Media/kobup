@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { listProjects } from '#lib/api/client.js';
   import type { Project } from '#lib/types.js';
+  import { isAdmin } from '#lib/session.svelte.js';
 
   let projects = $state<Project[]>([]);
   let loading = $state(true);
@@ -20,11 +21,13 @@
 
 <div class="page-header">
   <h1>Projects</h1>
-  <a href="/projects/new" class="icon-btn" title="New Project">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"
-      ><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></svg
-    >
-  </a>
+  {#if isAdmin()}
+    <a href="/projects/new" class="icon-btn" title="New Project">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"
+        ><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></svg
+      >
+    </a>
+  {/if}
 </div>
 
 {#if loading}

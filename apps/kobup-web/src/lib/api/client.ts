@@ -11,6 +11,7 @@ import type {
   Device,
   ApiToken,
   User,
+  Role,
   LatestRelease
 } from '#lib/types.js';
 
@@ -231,7 +232,7 @@ export async function listUsers(): Promise<User[]> {
   return request('/api/v1/admin/users');
 }
 
-export async function createUser(email: string, password: string, role: string): Promise<User> {
+export async function createUser(email: string, password: string, role: Role): Promise<User> {
   return request('/api/v1/admin/users', {
     method: 'POST',
     body: JSON.stringify({ email, password, role })

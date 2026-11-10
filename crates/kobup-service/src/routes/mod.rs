@@ -10,28 +10,42 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 
 use crate::AppState;
+use crate::auth::Role;
 use crate::repositories::{api_tokens, auth_tokens};
 
 // ---------------------------------------------------------------------------
 // Auth extractors
 // ---------------------------------------------------------------------------
 
-/// Admin user (web login, scope=admin).
+/// Any signed-in web user, whatever their role.
+#[derive(Debug, Clone)]
+pub struct SessionUser {
+    pub user_id: String,
+    pub role: Role,
+}
+
+/// A signed-in web user with the admin role.
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub user_id: String,
 }
 
 #[derive(Debug)]
-pub struct AuthRejection;
+pub enum AuthRejection {
+    Unauthorized,
+    Forbidden,
+}
 
 impl IntoResponse for AuthRejection {
     fn into_response(self) -> Response {
-        (StatusCode::UNAUTHORIZED, "unauthorized").into_response()
+        match self {
+            Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized").into_response(),
+            Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden").into_response(),
+        }
     }
 }
 
-impl<S> FromRequestParts<S> for AuthUser
+impl<S> FromRequestParts<S> for SessionUser
 where
     S: Send + Sync,
     AppState: FromRef<S>,
@@ -44,12 +58,31 @@ where
             .or_else(|| extract_session_cookie(&parts.headers))
             .unwrap_or_default();
 
-        let user_id = auth_tokens::validate_token(&app_state.pool, &token, "admin")
+        let (user_id, role) = auth_tokens::validate_session(&app_state.pool, &token)
             .await
-            .map_err(|_| AuthRejection)?
-            .ok_or(AuthRejection)?;
+            .map_err(|_| AuthRejection::Unauthorized)?
+            .ok_or(AuthRejection::Unauthorized)?;
+        let role = Role::parse(&role).ok_or(AuthRejection::Forbidden)?;
 
-        Ok(AuthUser { user_id })
+        Ok(SessionUser { user_id, role })
+    }
+}
+
+impl<S> FromRequestParts<S> for AuthUser
+where
+    S: Send + Sync,
+    AppState: FromRef<S>,
+{
+    type Rejection = AuthRejection;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let session = SessionUser::from_request_parts(parts, state).await?;
+        if session.role != Role::Admin {
+            return Err(AuthRejection::Forbidden);
+        }
+        Ok(AuthUser {
+            user_id: session.user_id,
+        })
     }
 }
 
@@ -72,8 +105,8 @@ where
 
         let user_id = auth_tokens::validate_token(&app_state.pool, &token, "device")
             .await
-            .map_err(|_| AuthRejection)?
-            .ok_or(AuthRejection)?;
+            .map_err(|_| AuthRejection::Unauthorized)?
+            .ok_or(AuthRejection::Unauthorized)?;
 
         Ok(DeviceAuth { user_id })
     }
@@ -104,17 +137,17 @@ where
         // api_tokens, and isn't scoped to a single project.
         auth_tokens::validate_token(&app_state.pool, &token, "ci")
             .await
-            .map_err(|_| AuthRejection)?
-            .ok_or(AuthRejection)?;
+            .map_err(|_| AuthRejection::Unauthorized)?
+            .ok_or(AuthRejection::Unauthorized)?;
 
         Ok(CiAuth { project_id: None })
     }
 }
 
-/// Any valid auth (admin, device, or CI).
+/// Any valid auth (web session, device, or CI).
 #[derive(Debug, Clone)]
 pub enum AnyAuth {
-    Admin(AuthUser),
+    Session(SessionUser),
     Device(DeviceAuth),
     Ci(CiAuth),
 }
@@ -133,14 +166,14 @@ where
             .unwrap_or_default();
 
         if token.is_empty() {
-            return Err(AuthRejection);
+            return Err(AuthRejection::Unauthorized);
         }
 
-        // Try admin scope first
-        if let Ok(Some(user_id)) =
-            auth_tokens::validate_token(&app_state.pool, &token, "admin").await
+        if let Ok(Some((user_id, role))) =
+            auth_tokens::validate_session(&app_state.pool, &token).await
+            && let Some(role) = Role::parse(&role)
         {
-            return Ok(AnyAuth::Admin(AuthUser { user_id }));
+            return Ok(AnyAuth::Session(SessionUser { user_id, role }));
         }
 
         // Try device scope
@@ -155,7 +188,7 @@ where
             return Ok(AnyAuth::Ci(CiAuth { project_id }));
         }
 
-        Err(AuthRejection)
+        Err(AuthRejection::Unauthorized)
     }
 }
 

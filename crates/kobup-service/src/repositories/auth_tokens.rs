@@ -45,6 +45,23 @@ pub async fn validate_token(
     Ok(row)
 }
 
+pub async fn validate_session(
+    pool: &DbPool,
+    token: &str,
+) -> super::Result<Option<(String, String)>> {
+    if token.is_empty() {
+        return Ok(None);
+    }
+    let token_hash = hash_token(token);
+    let row = sqlx::query!(
+        "SELECT u.id, u.role FROM auth_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND t.scope = 'session' AND t.revoked = 0 AND (t.expires_at IS NULL OR t.expires_at > datetime('now'))",
+        token_hash,
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| (r.id, r.role)))
+}
+
 pub async fn revoke_by_token(pool: &DbPool, token: &str) -> super::Result<bool> {
     let token_hash = hash_token(token);
     let result = sqlx::query!(

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { listUsers, createUser, deleteUser, resetUserPassword, me } from '#lib/api/client.js';
-  import type { User, MeResponse } from '#lib/types.js';
+  import type { User, MeResponse, Role } from '#lib/types.js';
 
   let users = $state<User[]>([]);
   let loading = $state(true);
@@ -12,7 +12,7 @@
   let showCreate = $state(false);
   let newEmail = $state('');
   let newPassword = $state('');
-  let newRole = $state('admin');
+  let newRole = $state<Role>('viewer');
   let creating = $state(false);
 
   onMount(async () => {
@@ -36,7 +36,7 @@
       await createUser(newEmail.trim(), newPassword, newRole);
       newEmail = '';
       newPassword = '';
-      newRole = 'admin';
+      newRole = 'viewer';
       showCreate = false;
       users = await listUsers();
     } catch (err) {
@@ -119,7 +119,8 @@
       <label for="userRole">
         Role
         <select id="userRole" bind:value={newRole}>
-          <option value="admin">admin</option>
+          <option value="viewer">viewer: browse apps, authorise own devices</option>
+          <option value="admin">admin: full access</option>
         </select>
       </label>
     </div>

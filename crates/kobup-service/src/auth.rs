@@ -1,5 +1,21 @@
 use argon2::{Argon2, PasswordHasher, PasswordVerifier, password_hash};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Role {
+    Admin,
+    Viewer,
+}
+
+impl Role {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "admin" => Some(Self::Admin),
+            "viewer" => Some(Self::Viewer),
+            _ => None,
+        }
+    }
+}
+
 pub fn hash_password(password: &str) -> Result<String, password_hash::Error> {
     Ok(Argon2::default()
         .hash_password(password.as_bytes())?

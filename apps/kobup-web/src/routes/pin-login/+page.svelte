@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pinLoginDevice, pinLoginCli } from '#lib/api/client.js';
+  import { isAdmin } from '#lib/session.svelte.js';
 
   let loginType = $state<'device' | 'cli'>('device');
   let pin = $state('');
@@ -37,24 +38,26 @@
 <form onsubmit={handleSubmit} class="card pin-form">
   <p class="hint">Enter the PIN shown on a device or CLI to authorize it with this server.</p>
 
-  <div class="type-toggle">
-    <button
-      type="button"
-      class="toggle-btn"
-      class:active={loginType === 'device'}
-      onclick={() => (loginType = 'device')}
-    >
-      Device
-    </button>
-    <button
-      type="button"
-      class="toggle-btn"
-      class:active={loginType === 'cli'}
-      onclick={() => (loginType = 'cli')}
-    >
-      CLI
-    </button>
-  </div>
+  {#if isAdmin()}
+    <div class="type-toggle">
+      <button
+        type="button"
+        class="toggle-btn"
+        class:active={loginType === 'device'}
+        onclick={() => (loginType = 'device')}
+      >
+        Device
+      </button>
+      <button
+        type="button"
+        class="toggle-btn"
+        class:active={loginType === 'cli'}
+        onclick={() => (loginType = 'cli')}
+      >
+        CLI
+      </button>
+    </div>
+  {/if}
 
   {#if error}
     <p class="error">{error}</p>

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT u.id, u.role FROM auth_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND t.scope = 'session' AND t.revoked = 0 AND (t.expires_at IS NULL OR t.expires_at > datetime('now'))",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "role",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "role"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "578c6e0e1400e955bb5881e326c2c53d52603b0f0492763c51bfb39ecd678907"
+}

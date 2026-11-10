@@ -1,13 +1,15 @@
+export type Role = 'admin' | 'viewer';
+
 export interface LoginResponse {
   token: string;
-  role: string;
+  role: Role;
   email: string;
 }
 
 export interface MeResponse {
   userId: string;
   email: string;
-  role: string;
+  role: Role;
 }
 
 export interface Project {
@@ -88,7 +90,7 @@ export interface ApiToken {
 export interface User {
   id: string;
   email: string;
-  role: string;
+  role: Role;
   createdAt: string;
 }
 
