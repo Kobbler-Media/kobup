@@ -1,4 +1,4 @@
-.PHONY: sqlx-check all quick web fmt fmt-api fmt-web lint lint-api lint-web check check-api check-web build build-api build-web test test-api sweep install dev docker-push sqlx-prepare
+.PHONY: sqlx-check all quick web fmt fmt-api fmt-web lint lint-api lint-web check check-web build build-api build-web test test-api install dev docker-push sqlx-prepare
 
 all: fmt lint check build test
 
@@ -10,7 +10,7 @@ web: fmt-web lint-web check-web build-web
 
 fmt: fmt-api fmt-web
 lint: lint-api lint-web
-check: check-api check-web
+check: check-web
 build: build-api build-web
 
 fmt-api:
@@ -19,11 +19,10 @@ fmt-api:
 lint-api:
 	SQLX_OFFLINE=true cargo clippy --all-targets -- -D warnings
 
-check-api:
-	SQLX_OFFLINE=true cargo check
-
+# No RUSTFLAGS on cargo steps: they replace .cargo/config rustflags (mold, cfgs) and fork the
+# whole dependency build. Clippy's -D warnings already denies rustc warnings.
 build-api:
-	SQLX_OFFLINE=true RUSTFLAGS="-D warnings" cargo build
+	SQLX_OFFLINE=true cargo build
 
 fmt-web:
 	@if [ -d apps/kobup-web/node_modules ]; then npm --prefix apps/kobup-web run format; else echo "web: skipping format (no node_modules)"; fi
@@ -41,11 +40,6 @@ test: test-api
 
 test-api:
 	SQLX_OFFLINE=true cargo test
-
-# Optional disk-space housekeeping. Needs `cargo install cargo-sweep`.
-sweep:
-	@command -v cargo-sweep >/dev/null 2>&1 && cargo sweep --maxsize 10GB . || \
-		echo "sweep: cargo-sweep not installed, skipping (cargo install cargo-sweep)"
 
 install:
 	npm --prefix apps/kobup-web ci
