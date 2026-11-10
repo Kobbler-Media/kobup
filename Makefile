@@ -55,8 +55,8 @@ REGISTRY ?= ghcr.io/kobbler-media
 TAG ?= latest
 
 docker-push:
-	docker build --no-cache --target prod -t $(REGISTRY)/kobup:$(TAG) -f docker/api.Dockerfile .
-	docker build --no-cache --target prod -t $(REGISTRY)/kobup-web:$(TAG) apps/kobup-web
+	docker build --target prod -t $(REGISTRY)/kobup:$(TAG) -f docker/api.Dockerfile .
+	docker build --target prod -t $(REGISTRY)/kobup-web:$(TAG) apps/kobup-web
 	docker push $(REGISTRY)/kobup:$(TAG)
 	docker push $(REGISTRY)/kobup-web:$(TAG)
 	@echo ""

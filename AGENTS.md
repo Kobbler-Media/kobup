@@ -10,7 +10,7 @@ Machine-specific notes — your paths, your deployment, your local tooling — b
 - `make quick` — fast: fmt + lint + check + build (skip tests)
 - `make web` — frontend only
 - `make sqlx-prepare` — regenerate the `.sqlx/` offline cache after changing queries
-- Warnings are errors: `RUSTFLAGS="-D warnings"`
+- Warnings are errors: clippy runs with `-D warnings`
 - All Rust build targets use `SQLX_OFFLINE=true`, so no database is needed to compile
 
 ## Architecture

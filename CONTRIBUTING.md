@@ -28,7 +28,7 @@ make quick    # everything except tests, for the inner loop
 make web      # frontend only
 ```
 
-`make` must be clean. Warnings are errors (`RUSTFLAGS="-D warnings"`, `clippy -D warnings`).
+`make` must be clean. Warnings are errors (`clippy -D warnings`).
 
 | Target | What it does |
 |---|---|
