@@ -149,10 +149,17 @@ tasks.register("publishToKobup") {
                 apk.copyTo(File(assetDir, name)).absolutePath
             }
             logger.lifecycle("Creating GitHub release $tag on $githubRepo...")
+            // Over git, not `gh --target`: the API refuses to create a tag on a commit that
+            // touches .github/workflows unless the token carries the `workflow` scope.
+            val tagRef = "$gitSha:refs/tags/$tag"
+            val (tagExit, tagOutput) = run("git", "push", "git@github.com:$githubRepo.git", tagRef)
+            if (tagExit != 0) {
+                throw GradleException("Published to kobup, but pushing tag $tag failed. Retry with:\n  git push git@github.com:$githubRepo.git $tagRef\n  gh release create $tag -R $githubRepo --verify-tag --generate-notes ${assets.joinToString(" ")}\n$tagOutput")
+            }
             val gh = ProcessBuilder(
                 listOf(
                     "gh", "release", "create", tag, "-R", githubRepo,
-                    "--target", gitSha, "--title", "$projectName $newName", "--generate-notes",
+                    "--verify-tag", "--title", "$projectName $newName", "--generate-notes",
                 ) + assets,
             ).directory(publishRootDir).redirectErrorStream(true)
             gh.environment()["GH_TOKEN"] = githubToken
@@ -161,7 +168,7 @@ tasks.register("publishToKobup") {
             // Kobup already has this release and version.properties stays bumped, so only the
             // GitHub half needs redoing.
             if (proc.waitFor() != 0) {
-                throw GradleException("Published to kobup, but the GitHub release failed. Retry with:\n  gh release create $tag -R $githubRepo --target $gitSha --generate-notes ${assets.joinToString(" ")}\n$ghOutput")
+                throw GradleException("Published to kobup, but the GitHub release failed. Retry with:\n  gh release create $tag -R $githubRepo --verify-tag --generate-notes ${assets.joinToString(" ")}\n$ghOutput")
             }
             logger.lifecycle("GitHub release: $ghOutput")
         }
