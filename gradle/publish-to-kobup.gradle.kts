@@ -8,6 +8,9 @@
 // With a "github" object in .kobup.json ({"repo": "owner/name", "user": "<gh account>",
 // "tagPrefix": "v"}) the same APKs also go up as a GitHub release, tagged at the commit they
 // were built from, via the `gh` CLI. GH_TOKEN wins over `gh auth token -u <user>`.
+// A project can attach more files to that release: set `kobupGithubExtraTasks` (comma-separated
+// task paths, built after the version bump) and `kobupGithubExtraDir` (root-relative directory
+// whose files are attached) as extra properties before applying this script.
 //
 // Usage: ./gradlew :app:publishToKobup
 //
@@ -20,6 +23,9 @@ tasks.register("publishToKobup") {
     val publishRootDir: File = rootDir
     val publishModulePath: String = project.path
     val publishApkDir: File = layout.buildDirectory.dir("outputs/apk/release").get().asFile
+    val githubExtraTasks: List<String> = (findProperty("kobupGithubExtraTasks") as? String)
+        ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+    val githubExtraDir: File? = (findProperty("kobupGithubExtraDir") as? String)?.let { File(rootDir, it) }
 
     doLast {
         fun run(vararg cmd: String): Pair<Int, String> {
@@ -100,6 +106,15 @@ tasks.register("publishToKobup") {
         if (unsigned.isNotEmpty()) fail("Refusing to publish unsigned APK: ${unsigned.joinToString { it.name }}")
         if (apks.isEmpty()) fail("No release APK in ${publishApkDir.absolutePath}")
 
+        val extraAssets = if (githubRepo == null || githubExtraTasks.isEmpty()) emptyList() else {
+            githubExtraDir?.deleteRecursively()
+            logger.lifecycle("Building GitHub release extras: ${githubExtraTasks.joinToString()}")
+            val (extraExit, extraOutput) = run(File(publishRootDir, "gradlew").absolutePath, *githubExtraTasks.toTypedArray())
+            if (extraExit != 0) fail("${githubExtraTasks.joinToString()} failed:\n$extraOutput")
+            githubExtraDir?.listFiles()?.filter { it.isFile }.orEmpty()
+                .ifEmpty { fail("${githubExtraTasks.joinToString()} left nothing in $githubExtraDir") }
+        }
+
         // The baseline profile as dex metadata, one per API band, so the installer can have
         // ART compile the app at install time rather than leave it on the JIT.
         val outputMetadata = File(publishApkDir, "output-metadata.json")
@@ -147,7 +162,7 @@ tasks.register("publishToKobup") {
                 val variant = apk.name.removeSuffix("-release.apk").substringAfter("-", "")
                 val name = if (variant.isEmpty()) "$slug-$version.apk" else "$slug-$version-$variant.apk"
                 apk.copyTo(File(assetDir, name)).absolutePath
-            }
+            } + extraAssets.map { it.absolutePath }
             logger.lifecycle("Creating GitHub release $tag on $githubRepo...")
             // Over git, not `gh --target`: the API refuses to create a tag on a commit that
             // touches .github/workflows unless the token carries the `workflow` scope.

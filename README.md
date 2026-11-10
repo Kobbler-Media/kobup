@@ -27,7 +27,7 @@ Licensed under [AGPL-3.0](LICENSE). Contributions welcome — see [CONTRIBUTING.
 
 Images are published to `ghcr.io/kobbler-media` for linux/amd64 and linux/arm64. `:latest` follows `main`; each [release](https://github.com/Kobbler-Media/kobup/releases) is also tagged `:0.1.0` and `:0.1`, and `:sha-<commit>` pins any build. Set `KOBUP_TAG` in `.env` to stay on one. There are no sibling-checkout requirements to build them yourself either; `docker compose up -d --build` builds the whole stack from this repo.
 
-The updater app's APK is attached to this repo's [GitHub Releases](https://github.com/Kobbler-Media/kobup/releases) (`android-v*` tags).
+The updater app's APK is attached to this repo's [GitHub Releases](https://github.com/Kobbler-Media/kobup/releases) (`android-v*` tags), signed with the certificate whose SHA-256 digest is `fc5f97ce1b202438853089cdfb634fd1db4abf6824f82e5ed6b879bad5f91813` (`apksigner verify --print-certs <apk>`).
 
 ## Quickstart
 
