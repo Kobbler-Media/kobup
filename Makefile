@@ -58,16 +58,17 @@ dev:
 # Publish release images. Maintainers only — needs push rights on REGISTRY.
 # Contributors never need this target.
 REGISTRY ?= ghcr.io/kobbler-media
+TAG ?= latest
 
 docker-push:
-	docker build --no-cache --target prod -t $(REGISTRY)/kobup:latest -f docker/api.Dockerfile .
-	docker build --no-cache --target prod -t $(REGISTRY)/kobup-web:latest apps/kobup-web
-	docker push $(REGISTRY)/kobup:latest
-	docker push $(REGISTRY)/kobup-web:latest
+	docker build --no-cache --target prod -t $(REGISTRY)/kobup:$(TAG) -f docker/api.Dockerfile .
+	docker build --no-cache --target prod -t $(REGISTRY)/kobup-web:$(TAG) apps/kobup-web
+	docker push $(REGISTRY)/kobup:$(TAG)
+	docker push $(REGISTRY)/kobup-web:$(TAG)
 	@echo ""
 	@echo "=== Pushed digests ==="
-	@docker inspect $(REGISTRY)/kobup:latest --format '  api: {{index .RepoDigests 0}}' 2>/dev/null || true
-	@docker inspect $(REGISTRY)/kobup-web:latest --format '  web: {{index .RepoDigests 0}}' 2>/dev/null || true
+	@docker inspect $(REGISTRY)/kobup:$(TAG) --format '  api: {{index .RepoDigests 0}}' 2>/dev/null || true
+	@docker inspect $(REGISTRY)/kobup-web:$(TAG) --format '  web: {{index .RepoDigests 0}}' 2>/dev/null || true
 	@echo ""
 	docker image prune -f --filter "dangling=true"
 

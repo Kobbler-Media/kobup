@@ -25,7 +25,7 @@ Licensed under [AGPL-3.0](LICENSE). Contributions welcome — see [CONTRIBUTING.
 - For local (non-Docker) development: a recent stable Rust toolchain and Node.js 24+.
 - For the Android apps: Android Studio, or a JDK plus the Android SDK.
 
-Images are published to `ghcr.io/kobbler-media` (linux/amd64) on every push to `main`: `:latest`, plus `:sha-<commit>` to pin one. There are no sibling-checkout requirements to build them yourself either; `docker compose up -d --build` builds the whole stack from this repo.
+Images are published to `ghcr.io/kobbler-media` for linux/amd64 and linux/arm64. `:latest` follows `main`; each [release](https://github.com/Kobbler-Media/kobup/releases) is also tagged `:0.1.0` and `:0.1`, and `:sha-<commit>` pins any build. Set `KOBUP_TAG` in `.env` to stay on one. There are no sibling-checkout requirements to build them yourself either; `docker compose up -d --build` builds the whole stack from this repo.
 
 The updater app's APK is attached to this repo's [GitHub Releases](https://github.com/Kobbler-Media/kobup/releases) (`android-v*` tags).
 

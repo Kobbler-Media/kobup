@@ -13,7 +13,7 @@
 
 services:
   api:
-    image: ${KOBUP_REGISTRY:-ghcr.io/kobbler-media}/kobup:latest
+    image: ${KOBUP_REGISTRY:-ghcr.io/kobbler-media}/kobup:${KOBUP_TAG:-latest}
     build:
       context: .
       dockerfile: docker/api.Dockerfile
@@ -54,7 +54,7 @@ services:
       retries: 3
 
   web:
-    image: ${KOBUP_REGISTRY:-ghcr.io/kobbler-media}/kobup-web:latest
+    image: ${KOBUP_REGISTRY:-ghcr.io/kobbler-media}/kobup-web:${KOBUP_TAG:-latest}
     build:
       context: ./apps/kobup-web
       target: prod
