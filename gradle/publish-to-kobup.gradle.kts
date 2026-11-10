@@ -12,7 +12,7 @@
 
 tasks.register("publishToKobup") {
     // Read here, not in the action: an action that touches the script object cannot be stored in
-    // the configuration cache, which kampr and tina run with.
+    // the configuration cache, and apps applying this script may run with it on.
     val publishRootDir: File = rootDir
     val publishModulePath: String = project.path
     val publishApkDir: File = layout.buildDirectory.dir("outputs/apk/release").get().asFile

@@ -82,9 +82,11 @@ docker compose -f docker-compose.dev.yml up --build
 Open `apps/kobup-android` in Android Studio. Two things are **not** in the repo and you must supply them yourself:
 
 - **`app/google-services.json`** — Firebase config for push notifications. Copy `app/google-services.json.example` and fill it in from your own Firebase project (Firebase console → Project settings → Your apps → Android app → *Download google-services.json*). The build does **not** fail without it: `app/build.gradle.kts` applies the Google Services plugin only when the file exists, so the app compiles and runs with FCM push simply disabled.
-- **`.kobup.json`** — deployment target for `./gradlew :app:publishToKobup`. Copy `.kobup.json.example` to `.kobup.json` in `apps/kobup-android/` and set `server` to your Kobup instance. This file is read from a fixed path (`<project root>/.kobup.json`) and only by the `publishToKobup` task, so a plain build or `assembleDebug` does not need it. Publishing also needs `KOBUP_TOKEN` (a CI token created in the web admin) in the environment or in `apps/kobup-android/.env`, and a release keystore — see `KOBUP_KEYSTORE_PATH` in `.env.example`.
+- **`.kobup.json`** — deployment target for `./gradlew :app:publishToKobup`. Copy `.kobup.json.example` to `.kobup.json` in `apps/kobup-android/` and set `server` to your Kobup instance. This file is read from a fixed path (`<project root>/.kobup.json`) and only by the `publishToKobup` task, so a plain build or `assembleDebug` does not need it. Publishing also needs `KOBUP_TOKEN` (a CI token created in the web admin) in the environment or in `apps/kobup-android/.env`, and a release keystore (see below).
 
-Both files are gitignored. `scripts/setup-android.sh` generates the Gradle wrappers if they are missing.
+Both files are gitignored.
+
+**Release signing.** `app/build.gradle.kts` signs release builds with the key aliased `kobup` in `apps/kobup-android/keystore/release.jks`, or the keystore at `KOBUP_KEYSTORE_PATH` (read from the environment only). The store and key passwords come from `KOBUP_KEYSTORE_PASSWORD` / `KOBUP_KEY_PASSWORD`, in the environment or `apps/kobup-android/.env` (see `.env.template` there); unset, they fall back to `CHANGEME`. Without a keystore the release build comes out unsigned and `publishToKobup` refuses to run. `scripts/setup-android.sh` generates the Gradle wrappers if they are missing.
 
 ## Build and test
 
@@ -115,9 +117,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 | `KOBUP_GITHUB_API_URL` | `https://api.github.com` | No | GitHub API base, for GitHub Enterprise |
 | `GITHUB_POLL_INTERVAL_SECS` | `3600` | No | GitHub poll interval |
 | `MAX_RELEASES_PER_CHANNEL` | `10` | No | Retention per project/channel; older releases pruned hourly |
+| `KOBUP_TRUSTED_PROXY_HOPS` | `1` | No | Reverse proxies in front of the API whose `X-Forwarded-For` is trusted for login rate limiting; `1` is the bundled nginx, `2` with an outer proxy too |
+| `KOBUP_PIN_SERVICE_URL` | `https://pin.biboop.com` | No | PIN pairing relay |
 | `RUST_LOG` | `info` | No | Tracing filter |
 
 `.env.example` is the authoritative list and documents each one inline.
+
+PIN pairing (device and `kobup login`) goes through an external relay, the public `https://pin.biboop.com` by default. To use your own, set `KOBUP_PIN_SERVICE_URL` on the server, the same variable when running `kobup login`, and build `kobup-android` with `-PpinServiceUrl=<url>`.
 
 ## CLI reference
 
