@@ -8,6 +8,9 @@ use tokio_util::io::ReaderStream;
 
 use crate::{AppState, repositories};
 
+// ReaderStream reads 4 KiB at a time by default: thousands of blocking-pool round trips per APK.
+const DOWNLOAD_CHUNK: usize = 256 * 1024;
+
 pub async fn download(State(state): State<AppState>, Path(artifact_id): Path<String>) -> Response {
     let artifact = match repositories::artifacts::get_by_id(&state.pool, &artifact_id).await {
         Ok(Some(a)) => a,
@@ -64,7 +67,7 @@ async fn stream_file(path: &str, mime_type: String, file_name: &str) -> Response
                 format!("attachment; filename=\"{file_name}\""),
             ),
         ],
-        Body::from_stream(ReaderStream::new(file)),
+        Body::from_stream(ReaderStream::with_capacity(file, DOWNLOAD_CHUNK)),
     )
         .into_response()
 }
