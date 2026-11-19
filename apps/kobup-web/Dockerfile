@@ -12,7 +12,7 @@ FROM deps AS builder
 COPY . .
 RUN npm run build
 
-FROM nginx:1.30.6-alpine AS prod
+FROM nginx:1.30.7-alpine AS prod
 LABEL org.opencontainers.image.source="https://github.com/Kobbler-Media/kobup"
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/build /usr/share/nginx/html
